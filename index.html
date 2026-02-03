@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Eco-Kavach Pro AR</title>
+
+    <style>
+        body { margin: 0; overflow: hidden; background: black; font-family: 'Courier New', Courier, monospace; }
+        
+        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+        
+        /* --- HUD CARDS --- */
+        .ar-card {
+            position: absolute;
+            display: none;
+            z-index: 3;
+            padding: 12px;
+            border-radius: 8px;
+            pointer-events: none;
+            width: 200px;
+            text-align: left;
+            backdrop-filter: blur(4px);
+        }
+
+        #carbon-tag {
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #00FF00; 
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            transition: all 0.2s ease-out;
+        }
+
+        #recycle-tag {
+            background: rgba(0, 20, 50, 0.90);
+            border: 2px solid #00FFFF; 
+            color: #00FFFF;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            white-space: pre-line;
+            font-size: 11px;
+            line-height: 1.4;
+            transition: all 0.2s ease-out;
+        }
+        
+        h3 { margin: 0; font-size: 14px; color: white; border-bottom: 1px solid #555; padding-bottom: 4px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;}
+        p { margin: 0; font-weight: bold; color: white; font-size: 16px;}
+        .label { font-size: 10px; color: #aaa; font-weight: normal; display: block; margin-bottom: 2px;}
+
+        #loader {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: cyan; z-index: 10; font-size: 20px; text-align: center;
+            background: rgba(0,0,0,0.8); padding: 20px; border: 1px solid cyan;
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+
+    <div id="loader">LOADING ASSETS...<br><small>Please allow camera access</small></div>
+
+    <div id="carbon-tag" class="ar-card">
+        <h3 id="obj-name">OBJECT</h3>
+        <span class="label">Emission Impact</span>
+        <p id="co2-val">...</p>
+    </div>
+
+    <div id="recycle-tag" class="ar-card">
+        <h3>RECYCLE GUIDE</h3>
+        <p id="recycle-val" style="color: #ABF;">...</p>
+    </div>
+
+    <video id="video" autoplay muted playsinline></video>
+
+    <script>
+        let model, video, scene, camera, renderer;
+        let goodModel = null, badModel = null;
+        
+        let currentObject = null; 
+        let targetX = 0, targetY = 0;
+        let isDetected = false;
+
+        let carbonTag = document.getElementById('carbon-tag');
+        let recycleTag = document.getElementById('recycle-tag');
+        let objName = document.getElementById('obj-name');
+        let co2Val = document.getElementById('co2-val');
+        let recycleVal = document.getElementById('recycle-val');
+        let loaderDiv = document.getElementById('loader');
+
+        // --- STEP 1: LOAD ASSETS ---
+        function loadAssets() {
+            const loader = new THREE.GLTFLoader();
+
+            loader.load('./tree.glb', function (gltf) {
+                goodModel = gltf.scene;
+                goodModel.scale.set(0.8, 0.8, 0.8); 
+                goodModel.visible = false;
+                scene.add(goodModel);
+                console.log("Tree model loaded");
+            }, undefined, function (error) {
+                console.error("Error loading tree.glb:", error);
+            });
+
+            loader.load('./trash.glb', function (gltf) {
+                badModel = gltf.scene;
+                badModel.scale.set(0.03, 0.03, 0.03); 
+                badModel.visible = false;
+                scene.add(badModel);
+                console.log("Trash model loaded");
+            }, undefined, function (error) {
+                console.error("Error loading trash.glb:", error);
+            });
+        }
+
+        // --- STEP 2: SETUP 3D ---
+        function init3D() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio); 
+            document.body.appendChild(renderer.domElement);
+
+            const light = new THREE.DirectionalLight(0xffffff, 2.5);
+            light.position.set(0, 10, 10);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+
+            loadAssets(); 
+        }
+
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                    audio: false
+                });
+                video = document.getElementById('video');
+                video.srcObject = stream;
+                return new Promise(resolve => { video.onloadedmetadata = () => resolve(video); });
+            } catch (err) {
+                alert("Camera Error: Ensure you are on HTTPS or localhost.");
+                console.error(err);
+            }
+        }
+
+        // --- DATABASE ---
+        function getData(className) {
+            const db = {
+                // --- ELECTRONICS ---
+                'mouse': { 
+                    co2: '7.5 kg', color: '#FF4500', 
+                    recycle: '1. Unplug/Remove batteries.\n2. Do not put in trash.\n3. Check brand take-back.\n4. Drop at E-Waste bin.\n5. Material: ABS Plastic.' 
+                },
+                'keyboard': { 
+                    co2: '18 kg', color: '#FF4500', 
+                    recycle: '1. Remove keycaps if poss.\n2. Clean dust out.\n3. Separate cable wire.\n4. Drop at E-Waste center.\n5. Circuit board is toxic.' 
+                },
+                'laptop': { 
+                    co2: '280 kg', color: '#FF0000', 
+                    recycle: '1. Remove Lithium battery.\n2. Wipe hard drive data.\n3. Check trade-in value.\n4. Contact manufacturer.\n5. Drop at certified E-Center.' 
+                },
+                'cell phone': { 
+                    co2: '55 kg', color: '#FF0000', 
+                    recycle: '1. Backup your data fully.\n2. Factory reset device.\n3. Remove SIM/SD cards.\n4. Find E-Waste center.\n5. Do NOT use trash bin.' 
+                },
+                'tv': { 
+                    co2: '300 kg', color: '#FF0000', 
+                    recycle: '1. Do not break screen.\n2. Heavy metals inside.\n3. Call bulk pickup.\n4. Donate if working.\n5. E-Waste facility only.' 
+                },
+                'remote': { 
+                    co2: '15 kg', color: '#FF4500', 
+                    recycle: '1. Open battery case.\n2. Remove old batteries.\n3. Recycle batteries sep.\n4. Check plastic type.\n5. Place in rigid plastic bin.' 
+                },
+
+                // --- HOUSEHOLD / SUSTAINABLE ---
+                'bottle': { 
+                    co2: '82 g', color: '#00FF00', 
+                    recycle: '1. Empty all liquid.\n2. Rinse to remove residue.\n3. Crush to save space.\n4. Keep cap on (usually).\n5. Place in Blue Dry Bin.' 
+                },
+                'cup': { 
+                    co2: '21 g', color: '#00FF00', 
+                    recycle: '1. Check lining (Plastic?).\n2. Remove lid/straw.\n3. Rinse if recyclable.\n4. If wax-lined, trash it.\n5. Avoid mixed bins.' 
+                },
+                'wine glass': { 
+                    co2: '180 g', color: '#00FF00', 
+                    recycle: '1. Rinse thoroughly.\n2. Remove cork/labels.\n3. Do NOT break it.\n4. Glass recycle bin.\n5. Melted infinitely.' 
+                },
+                'bowl': { 
+                    co2: '150 g', color: '#00FF00', 
+                    recycle: '1. Remove food scraps.\n2. Wash with soap.\n3. If Ceramic: Trash.\n4. If Plastic: Recycle.\n5. Check number code.' 
+                },
+                'book': { 
+                    co2: '1.2 kg', color: '#00FF00', 
+                    recycle: '1. Remove plastic covers.\n2. Check binding glue.\n3. Keep dry and clean.\n4. Donate if usable.\n5. Paper recycle bin.' 
+                },
+                'backpack': { 
+                    co2: '18 kg', color: '#FFFF00', 
+                    recycle: '1. Empty all pockets.\n2. Wash and dry.\n3. Donate if usable.\n4. Textile recycle bin.\n5. Zippers go in metal.' 
+                },
+                'scissors': { 
+                    co2: '1.5 kg', color: '#00FF00', 
+                    recycle: '1. Clean sticky residue.\n2. Sharpen if dull.\n3. Donate to schools.\n4. Scrap metal bin.\n5. Handle with care.' 
+                },
+            };
+            return db[className] || null;
+        }
+
+        // --- AI LOOP ---
+        function detectFrame() {
+            model.detect(video).then(predictions => {
+                const target = predictions.find(p => getData(p.class) !== null);
+
+                if (target && goodModel && badModel) {
+                    const data = getData(target.class);
+                    isDetected = true;
+                    
+                    let activeModel = (data.color === '#FF0000' || data.color === '#FF4500') ? badModel : goodModel;
+                    
+                    if (currentObject && currentObject !== activeModel) {
+                        currentObject.visible = false;
+                    }
+                    currentObject = activeModel;
+
+                    const videoX = (target.bbox[0] + target.bbox[2] / 2) / video.videoWidth;
+                    const videoY = (target.bbox[1] + target.bbox[3] / 2) / video.videoHeight;
+                    const aspect = window.innerWidth / window.innerHeight;
+                    
+                    // --- POSITIONING CHANGE ---
+                    targetX = (videoX - 0.5) * 10 * aspect; 
+                    // Added + 1.5 to shift the 3D model UP (Above the object)
+                    targetY = (-(videoY - 0.5) * 6) + 1.5; 
+
+                    // UI Updates
+                    const pixelX = target.bbox[0] + (target.bbox[2] * 0.85);
+                    const pixelY = target.bbox[1];
+                    const scaleX = window.innerWidth / video.videoWidth;
+                    const scaleY = window.innerHeight / video.videoHeight;
+
+                    carbonTag.style.display = 'block';
+                    carbonTag.style.left = (pixelX * scaleX) + 'px';
+                    carbonTag.style.top = (pixelY * scaleY) + 'px';
+                    carbonTag.style.borderColor = data.color;
+                    carbonTag.style.boxShadow = `0 0 15px ${data.color}`;
+                    
+                    objName.innerText = target.class.toUpperCase();
+                    objName.style.color = data.color;
+                    co2Val.innerText = data.co2;
+
+                    recycleTag.style.display = 'block';
+                    recycleTag.style.left = (pixelX * scaleX) + 'px';
+                    recycleTag.style.top = ((pixelY * scaleY) + 120) + 'px';
+                    recycleVal.innerText = data.recycle;
+
+                } else {
+                    isDetected = false;
+                    carbonTag.style.display = 'none';
+                    recycleTag.style.display = 'none';
+                }
+                requestAnimationFrame(detectFrame);
+            });
+        }
+
+        // --- VISUAL LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (currentObject && isDetected) {
+                currentObject.visible = true;
+                currentObject.position.x += (targetX - currentObject.position.x) * 0.1; 
+                currentObject.position.y += (targetY - currentObject.position.y) * 0.1;
+                currentObject.rotation.y += 0.02; 
+            } else if (currentObject) {
+                currentObject.visible = false;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        async function runAR() {
+            init3D();
+            await setupCamera();
+            console.log("Camera Ready");
+            
+            model = await cocoSsd.load();
+            console.log("AI Ready");
+            loaderDiv.style.display = 'none'; 
+            
+            animate();
+            detectFrame();
+        }
+
+        runAR();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
