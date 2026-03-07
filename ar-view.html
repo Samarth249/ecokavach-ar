@@ -1,17 +1,23 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>Eco-Kavach Full AR View</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  
+
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
   <style>
-    body { margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; background-color: transparent; }
-    
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+      background-color: transparent;
+    }
+
     /* DOM Overlay Container for WebXR */
     #overlay {
       position: absolute;
@@ -19,7 +25,8 @@
       left: 0;
       width: 100%;
       height: 100%;
-      pointer-events: none; /* Let clicks pass through to A-Frame if needed */
+      pointer-events: none;
+      /* Let clicks pass through to A-Frame if needed */
       z-index: 10;
     }
 
@@ -31,22 +38,43 @@
       width: 90%;
       max-width: 400px;
       display: none;
-      pointer-events: auto; /* Re-enable clicks for UI */
+      pointer-events: auto;
+      /* Re-enable clicks for UI */
     }
 
     .info-card {
       background: rgba(255, 255, 255, 0.95);
       border-radius: 15px;
       padding: 20px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
       text-align: center;
       border: 2px solid #2ecc71;
     }
 
-    .info-card h2 { margin: 0 0 10px 0; color: #27ae60; text-transform: capitalize; }
-    .carbon-stat { font-size: 1.2em; font-weight: bold; color: #e74c3c; margin-bottom: 10px; }
-    .steps { font-size: 0.9em; text-align: left; background: #f0f9f0; padding: 10px; border-radius: 8px; }
-    .steps li { margin-bottom: 4px; }
+    .info-card h2 {
+      margin: 0 0 10px 0;
+      color: #27ae60;
+      text-transform: capitalize;
+    }
+
+    .carbon-stat {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #e74c3c;
+      margin-bottom: 10px;
+    }
+
+    .steps {
+      font-size: 0.9em;
+      text-align: left;
+      background: #f0f9f0;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .steps li {
+      margin-bottom: 4px;
+    }
 
     #reticle {
       position: absolute;
@@ -58,10 +86,13 @@
       border-radius: 50%;
       transform: translate(-50%, -50%);
     }
-    
+
     #loader {
       position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: #2c3e50;
       color: white;
       display: flex;
@@ -73,17 +104,19 @@
 
     /* Video element for fallback and TF.js */
     #webcam {
-      position: absolute; 
-      top: 0; 
-      left: 0; 
-      min-width: 100%; 
-      min-height: 100%; 
-      z-index: -1; 
+      position: absolute;
+      top: 0;
+      left: 0;
+      min-width: 100%;
+      min-height: 100%;
+      z-index: -1;
       object-fit: cover;
     }
-    
+
     /* Ensure AR button is clickable */
-    .a-enter-vr { z-index: 999 !important; }
+    .a-enter-vr {
+      z-index: 999 !important;
+    }
   </style>
 </head>
 
@@ -116,22 +149,17 @@
   </div>
 
   <!-- A-Frame Scene with WebXR enabled! -->
-  <a-scene embedded 
-           webxr="optionalFeatures: dom-overlay; overlayElement: #overlay" 
-           vr-mode-ui="enabled: true" 
-           background="color: transparent;">
-           
+  <a-scene embedded webxr="optionalFeatures: dom-overlay; overlayElement: #overlay" vr-mode-ui="enabled: true"
+    background="color: transparent;">
+
     <a-assets>
       <a-asset-item id="tree-model" src="tree.glb"></a-asset-item>
       <a-asset-item id="trash-model" src="trash.glb"></a-asset-item>
     </a-assets>
 
     <!-- DO NOT TOUCH TREE.GLB SIZE/SCALE - Left exactly as provided -->
-    <a-entity id="ar-avatar" 
-              gltf-model="#tree-model" 
-              position="0 0 -2" 
-              scale="0 0 0" 
-              animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
+    <a-entity id="ar-avatar" gltf-model="#tree-model" position="0 0 -2" scale="0 0 0"
+      animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
     </a-entity>
 
     <!-- Look controls let the user look around natively without AR Mode if they just move the phone -->
@@ -152,7 +180,7 @@
     let model = undefined;
     let lastDetected = null;
     let frameConsistencyCounter = 0;
-    const CONSISTENCY_THRESHOLD = 5; 
+    const CONSISTENCY_THRESHOLD = 5;
 
     const ECO_DATA = {
       'laptop': { carbon: '331kg CO2e', steps: ['1. BACKUP & WIPE: Use factory reset to protect personal data.', '2. BATTERY SAFETY: If removable, tape terminals to prevent fire.', '3. DONATION FIRST: If functional, donate to schools/NGOs.', '4. NO LANDFILL: Contains lead, mercury, and cadmium.', '5. LOCATE: Find certified "R2" or "e-Stewards" recycler.'] },
@@ -186,7 +214,7 @@
           audio: false
         });
         VIDEO.srcObject = stream;
-        
+
         return new Promise((resolve) => {
           VIDEO.onloadedmetadata = () => resolve();
         });
@@ -241,7 +269,7 @@
       UI_LAYER.style.display = 'block';
       NAME_EL.innerText = className;
       CARBON_EL.innerText = ` footprint: ${data.carbon}`;
-      
+
       STEPS_EL.innerHTML = '';
       data.steps.forEach(step => {
         const li = document.createElement('li');
@@ -251,11 +279,11 @@
     }
 
     function show3DAvatar(show) {
-      if(show) {
+      if (show) {
         // Keeping precise exact scale behavior as requested
-        AR_AVATAR.setAttribute('scale', '0.5 0.5 0.5'); 
+        AR_AVATAR.setAttribute('scale', '0.5 0.5 0.5');
       } else {
-        AR_AVATAR.setAttribute('scale', '0 0 0'); 
+        AR_AVATAR.setAttribute('scale', '0 0 0');
       }
     }
 
@@ -263,4 +291,5 @@
 
   </script>
 </body>
+
 </html>
