@@ -370,7 +370,7 @@
           validTargets.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
           const topResult = validTargets[0];
 
-          handleDetection(topResult.class);
+          handleDetection(topResult.class, topResult.bbox);
         } else {
           handleNoDetection();
         }
@@ -381,7 +381,7 @@
       });
     }
 
-    function handleDetection(className) {
+    function handleDetection(className, bbox) {
       framesWithoutDetection = 0; // Reset hide timer because we saw something
 
       if (className === lastDetected) {
@@ -394,6 +394,21 @@
       // Only update UI if we are SURE (passed threshold)
       if (frameConsistencyCounter >= CONSISTENCY_THRESHOLD) {
         updateUI(className); // updateUI now calls show3DAvatar internally
+        
+        // --- 3D POSITION TRACKING ---
+        // bbox is [x, y, width, height] in video pixel coordinates.
+        // We find the center of the bounding box
+        const centerX = bbox[0] + (bbox[2] / 2);
+        const centerY = bbox[1] + (bbox[3] / 2);
+        
+        // Convert to normalized device coordinates (-1 to +1)
+        const nx = (centerX / VIDEO.videoWidth) * 2 - 1;
+        const ny = -(centerY / VIDEO.videoHeight) * 2 + 1; // Y is inverted in 3D
+
+        // Move the 3D Avatar (Tree/Trash) to match the real-world location
+        // Multipliers (like 1.5) depend on camera FOV, tweak to make it align well
+        const zDepth = -2; // Keep it fixed 2 meters in front of the camera
+        AR_AVATAR.setAttribute('position', `${nx * 1.5} ${ny * 1.5} ${zDepth}`);
       }
     }
 
