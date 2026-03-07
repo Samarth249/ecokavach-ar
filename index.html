@@ -146,11 +146,11 @@
       <a-asset-item id="trash-model" src="trash.glb"></a-asset-item>
     </a-assets>
 
-    <a-entity id="ar-avatar" gltf-model="#tree-model" position="0 0 -2" scale="0 0 0"
-      animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
-    </a-entity>
-
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-camera position="0 0 0" look-controls="enabled: false">
+      <a-entity id="ar-avatar" gltf-model="#tree-model" position="0 0 -2" scale="0 0 0"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
+      </a-entity>
+    </a-camera>
   </a-scene>
 
   <video id="webcam" autoplay playsinline muted width="640" height="480"
@@ -173,6 +173,8 @@
     let lastDetected = null;
     let frameConsistencyCounter = 0;
     const CONSISTENCY_THRESHOLD = 5; // Must see object 5 times to confirm
+    let framesWithoutDetection = 0;
+    const HIDE_THRESHOLD = 30; // Hide UI after 30 frames (about 1 second) of nothing
 
     // --- IMPROVEMENT 5: SMART LABEL MAPPING (Eco-Logic) ---
     // Maps generic COCO-SSD labels to Eco-Kavach data
@@ -362,25 +364,31 @@
     }
 
     function handleDetection(className) {
+      framesWithoutDetection = 0; // Reset hide timer because we saw something
+
       if (className === lastDetected) {
         frameConsistencyCounter++;
       } else {
         lastDetected = className;
-        frameConsistencyCounter = 0;
+        frameConsistencyCounter = 1; // Start counting the new object
       }
 
       // Only update UI if we are SURE (passed threshold)
-      if (frameConsistencyCounter > CONSISTENCY_THRESHOLD) {
+      if (frameConsistencyCounter >= CONSISTENCY_THRESHOLD) {
         updateUI(className);
         show3DAvatar(true);
       }
     }
 
     function handleNoDetection() {
-      frameConsistencyCounter = 0;
-      // Optional: Hide UI if nothing found for a long time
-      // UI_LAYER.style.display = 'none'; 
-      // show3DAvatar(false);
+      framesWithoutDetection++;
+      if (framesWithoutDetection > HIDE_THRESHOLD) {
+        // Clear old items if nothing is detected for a while
+        lastDetected = null;
+        frameConsistencyCounter = 0;
+        UI_LAYER.style.display = 'none'; 
+        show3DAvatar(false);
+      }
     }
 
     function updateUI(className) {
