@@ -411,9 +411,7 @@
     }
 
     // Start
-    init().then(() => {
-      loadAI();
-    });
+    runAR().catch(e => console.error("Error starting AR:", e));
 
   </script>
 </body>
