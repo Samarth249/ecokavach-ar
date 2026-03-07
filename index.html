@@ -174,7 +174,7 @@
     let frameConsistencyCounter = 0;
     const CONSISTENCY_THRESHOLD = 2; // Reduced from 5 to 2 for much faster detection feeling
     let framesWithoutDetection = 0;
-    const HIDE_THRESHOLD = 30; // Hide UI after 30 frames (about 1 second) of nothing
+    const HIDE_THRESHOLD = 5; // Reduced from 30 to 5 so it vanishes almost instantly when you move the phone
 
     // --- IMPROVEMENT 5: SMART LABEL MAPPING (Eco-Logic) ---
     // Maps generic COCO-SSD labels to Eco-Kavach data
@@ -375,8 +375,7 @@
 
       // Only update UI if we are SURE (passed threshold)
       if (frameConsistencyCounter >= CONSISTENCY_THRESHOLD) {
-        updateUI(className);
-        show3DAvatar(true);
+        updateUI(className); // updateUI now calls show3DAvatar internally
       }
     }
 
@@ -406,13 +405,23 @@
         li.innerText = step;
         STEPS_EL.appendChild(li);
       });
+      
+      // Determine if object is generally "Good/Recyclable" or "Bad/Trash" based on its data
+      // (For this demo, we'll assign tree to easily recyclable items, and trash to hazardous/complex items)
+      const recyclableItems = ['bottle', 'bowl', 'book']; // Items that get a Tree
+      const modelType = recyclableItems.includes(className) ? 'tree' : 'trash';
+      show3DAvatar(true, modelType);
     }
 
-    function show3DAvatar(show) {
-      // Simple logic: Scale up the tree model when valid object found
-      // You can swap src to '#trash-model' based on data if needed
+    function show3DAvatar(show, modelType = 'tree') {
       if (show) {
-        AR_AVATAR.setAttribute('scale', '0.5 0.5 0.5'); // Show
+        if (modelType === 'tree') {
+          AR_AVATAR.setAttribute('gltf-model', '#tree-model');
+          AR_AVATAR.setAttribute('scale', '0.5 0.5 0.5');
+        } else {
+          AR_AVATAR.setAttribute('gltf-model', '#trash-model');
+          AR_AVATAR.setAttribute('scale', '0.05 0.05 0.05'); // Trash model needs different scale
+        }
       } else {
         AR_AVATAR.setAttribute('scale', '0 0 0'); // Hide
       }
