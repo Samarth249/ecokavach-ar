@@ -172,7 +172,7 @@
     // We only update the UI if we see the same object 'N' times in a row.
     let lastDetected = null;
     let frameConsistencyCounter = 0;
-    const CONSISTENCY_THRESHOLD = 5; // Must see object 5 times to confirm
+    const CONSISTENCY_THRESHOLD = 2; // Reduced from 5 to 2 for much faster detection feeling
     let framesWithoutDetection = 0;
     const HIDE_THRESHOLD = 30; // Hide UI after 30 frames (about 1 second) of nothing
 
@@ -329,8 +329,8 @@
       console.log("Camera Ready");
 
       // --- OPTIMIZATION: LITE MODEL ---
-      // 'mobilenet_v2' is a lightweight, mobile-optimized base model that loads much faster
-      model = await cocoSsd.load({ base: 'mobilenet_v2' });
+      // 'lite_mobilenet_v2' is the absolute fastest model, loading much quicker
+      model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
       console.log("AI Ready");
       LOADER.style.display = 'none';
 
