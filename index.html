@@ -1,18 +1,23 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>Eco-Kavach AR Scanner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  
+
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
   <style>
     /* UI Overlay Styling */
-    body { margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; }
-    
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+    }
+
     #ui-layer {
       position: absolute;
       bottom: 20px;
@@ -21,22 +26,43 @@
       width: 90%;
       max-width: 400px;
       z-index: 10;
-      display: none; /* Hidden until object found */
+      display: none;
+      /* Hidden until object found */
     }
 
     .info-card {
       background: rgba(255, 255, 255, 0.95);
       border-radius: 15px;
       padding: 20px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
       text-align: center;
       border: 2px solid #2ecc71;
     }
 
-    .info-card h2 { margin: 0 0 10px 0; color: #27ae60; text-transform: capitalize; }
-    .carbon-stat { font-size: 1.2em; font-weight: bold; color: #e74c3c; margin-bottom: 10px; }
-    .steps { font-size: 0.9em; text-align: left; background: #f0f9f0; padding: 10px; border-radius: 8px; }
-    .steps li { margin-bottom: 4px; }
+    .info-card h2 {
+      margin: 0 0 10px 0;
+      color: #27ae60;
+      text-transform: capitalize;
+    }
+
+    .carbon-stat {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #e74c3c;
+      margin-bottom: 10px;
+    }
+
+    .steps {
+      font-size: 0.9em;
+      text-align: left;
+      background: #f0f9f0;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .steps li {
+      margin-bottom: 4px;
+    }
 
     /* The "Reticle" to guide user aim */
     #reticle {
@@ -50,20 +76,44 @@
       transform: translate(-50%, -50%);
       z-index: 5;
       pointer-events: none;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     }
-    
+
     /* Loading screen */
     #loader {
       position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: #2c3e50;
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 20;
-      flex-direction: column;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: cyan;
+      z-index: 10;
+      font-size: 16px;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 30px;
+      border: 1px solid cyan;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 15px auto;
+      border: 4px solid rgba(0, 255, 255, 0.3);
+      border-top: 4px solid cyan;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
   </style>
 </head>
@@ -71,8 +121,9 @@
 <body>
 
   <div id="loader">
-    <h1>🌱 Eco-Kavach</h1>
-    <p>Loading AI Model...</p>
+    <div class="spinner"></div>
+    INITIALIZING AR ENGINE...<br>
+    <small style="color:#aaa; display:block; margin-top:8px;">Downloading AI Model (First load only)</small>
   </div>
 
   <div id="reticle"></div>
@@ -95,17 +146,15 @@
       <a-asset-item id="trash-model" src="trash.glb"></a-asset-item>
     </a-assets>
 
-    <a-entity id="ar-avatar" 
-              gltf-model="#tree-model" 
-              position="0 0 -2" 
-              scale="0 0 0"
-              animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
+    <a-entity id="ar-avatar" gltf-model="#tree-model" position="0 0 -2" scale="0 0 0"
+      animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
     </a-entity>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
   </a-scene>
 
-  <video id="webcam" autoplay playsinline muted width="640" height="480" style="position: absolute; top: 0; left: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover;"></video>
+  <video id="webcam" autoplay playsinline muted width="640" height="480"
+    style="position: absolute; top: 0; left: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover;"></video>
 
   <script>
     // --- CONFIGURATION ---
@@ -118,7 +167,7 @@
     const AR_AVATAR = document.getElementById('ar-avatar');
 
     let model = undefined;
-    
+
     // --- IMPROVEMENT 4: HYSTERESIS (Stability Check) ---
     // We only update the UI if we see the same object 'N' times in a row.
     let lastDetected = null;
@@ -127,133 +176,133 @@
 
     // --- IMPROVEMENT 5: SMART LABEL MAPPING (Eco-Logic) ---
     // Maps generic COCO-SSD labels to Eco-Kavach data
-    
+
     // --- UPDATED ECO-LOGIC MAP (High Accuracy) ---
     const ECO_DATA = {
-      'laptop': { 
-        carbon: '331kg CO2e', 
+      'laptop': {
+        carbon: '331kg CO2e',
         steps: [
           '1. BACKUP & WIPE: Use factory reset to protect personal data.',
           '2. BATTERY SAFETY: If removable, tape terminals to prevent fire.',
           '3. DONATION FIRST: If functional, donate to schools/NGOs.',
           '4. NO LANDFILL: Contains lead, mercury, and cadmium.',
           '5. LOCATE: Find certified "R2" or "e-Stewards" recycler.'
-        ] 
+        ]
       },
-      'cell phone': { 
-        carbon: '63kg CO2e', 
+      'cell phone': {
+        carbon: '63kg CO2e',
         steps: [
           '1. CRITICAL MINERALS: Contains gold, cobalt, and rare earths.',
           '2. BATTERY HAZARD: Swollen batteries need special handling.',
           '3. FACTORY RESET: Wipe all accounts before disposal.',
           '4. TRADE-IN: Many carriers offer credit for old devices.',
           '5. ACCESSORIES: Cables and chargers are also E-waste.'
-        ] 
+        ]
       },
-      'keyboard': { 
-        carbon: '19kg CO2e', 
+      'keyboard': {
+        carbon: '19kg CO2e',
         steps: [
           '1. MATERIAL: Mostly ABS plastic and circuit membranes.',
           '2. CLEAN: Remove keycaps to recycle plastic separately if possible.',
           '3. CABLE: Tie the cord neatly; do not cut it off.',
           '4. E-WASTE BIN: Do not place in standard home recycling.',
           '5. REUSE: USB keyboards work with almost any device.'
-        ] 
+        ]
       },
-      'mouse': { 
-        carbon: '12kg CO2e', 
+      'mouse': {
+        carbon: '12kg CO2e',
         steps: [
           '1. BATTERIES: Remove AA/AAA batteries immediately.',
           '2. WIRELESS DONGLE: Don\'t forget the USB receiver inside.',
           '3. CIRCUIT BOARD: Contains small amounts of copper/gold.',
           '4. E-WASTE: Drop off at electronics store bins.',
           '5. REPAIR: Clicking issues are often fixable with cleaning.'
-        ] 
+        ]
       },
-      'tv': { 
-        carbon: '800kg+ CO2e', 
+      'tv': {
+        carbon: '800kg+ CO2e',
         steps: [
           '1. HEAVY METALS: Older screens may contain mercury.',
           '2. SAFETY: Panel glass can shatter; do not break.',
           '3. TRANSPORT: Requires bulk pickup or dedicated drop-off.',
           '4. PLASTIC BACK: The casing is recyclable, but only by pros.',
           '5. ENERGY: New TVs use less power; recycle old plasmas.'
-        ] 
+        ]
       },
-      'remote': { 
-        carbon: '2kg CO2e', 
+      'remote': {
+        carbon: '2kg CO2e',
         steps: [
           '1. BATTERY CHECK: Leaking batteries are toxic—handle with gloves.',
           '2. RUBBER BUTTONS: Remove keypad if separating materials.',
           '3. PLASTIC SHELL: Often recyclable rigid plastic.',
           '4. BOARD: The green circuit board goes to E-waste.',
           '5. FIX: Clean battery contacts with vinegar before tossing.'
-        ] 
+        ]
       },
-      'bottle': { 
-        carbon: '82g CO2e', 
+      'bottle': {
+        carbon: '82g CO2e',
         steps: [
           '1. MATERIAL ID: Check for #1 (PET) or #2 (HDPE) symbol.',
           '2. RINSE: Food residue contaminates the whole batch.',
           '3. CRUSH: Flatten to save space in the truck.',
           '4. CAP ON/OFF: Check local rules (caps are different plastic).',
           '5. LABEL: Plastic shrink wraps often need removal.'
-        ] 
+        ]
       },
-      'cup': { 
-        carbon: '110g CO2e (Ceramic)', 
+      'cup': {
+        carbon: '110g CO2e (Ceramic)',
         steps: [
           '1. PAPER CUPS: Lined with plastic—usually NOT recyclable.',
           '2. PLASTIC CUPS: Check number (#5 PP is common).',
           '3. CERAMIC: If broken, it goes in GENERAL TRASH (not glass bin).',
           '4. STYROFOAM: Avoid entirely; extremely hard to recycle.',
           '5. LID: Plastic lids are usually recyclable; separate them.'
-        ] 
+        ]
       },
-      'wine glass': { 
-        carbon: '250g CO2e', 
+      'wine glass': {
+        carbon: '250g CO2e',
         steps: [
           '1. WARNING: Different melting point than bottle glass.',
           '2. NO RECYCLE BIN: Do NOT mix with jar/bottle recycling.',
           '3. DONATE: Thrift stores take intact stemware.',
           '4. BROKEN?: Wrap in newspaper and trash safely.',
           '5. LEAD: Crystal glasses contain lead; hazardous waste.'
-        ] 
+        ]
       },
-      'bowl': { 
-        carbon: 'Varies', 
+      'bowl': {
+        carbon: 'Varies',
         steps: [
           '1. CERAMIC/CLAY: Landfill only (cannot be melted down).',
           '2. GLASS (PYREX): Heat-treated; do NOT recycle with bottles.',
           '3. PLASTIC: Wash grease completely before recycling.',
           '4. METAL: Stainless steel bowls are 100% recyclable.',
           '5. REPURPOSE: Use as planter or organizer if chipped.'
-        ] 
+        ]
       },
-      'book': { 
-        carbon: '1.2kg CO2e', 
+      'book': {
+        carbon: '1.2kg CO2e',
         steps: [
           '1. PAPER TYPE: White paper is high value; glossy is lower.',
           '2. GLUE/SPINE: Hardcovers must have covers ripped off.',
           '3. MOISTURE: Wet books cannot be recycled (mold risk).',
           '4. DONATE: Little Free Libraries are better than recycling.',
           '5. AGE: Very old yellowed paper has short fibers (compost).'
-        ] 
+        ]
       },
-      'scissors': { 
-        carbon: '15g CO2e', 
+      'scissors': {
+        carbon: '15g CO2e',
         steps: [
           '1. COMPOSITE: Metal blades + Plastic handles = Nightmare.',
           '2. SEPARATE: Unscrew pivot screw to separate materials.',
           '3. METAL BIN: Blades go to scrap metal recycling.',
           '4. SHARP: Tape blades if putting in mixed recycling.',
           '5. MAINTAIN: Sharpening extends life indefinitely.'
-        ] 
+        ]
       }
     };
 
     // --- INITIALIZATION ---
-    async function init() {
+    async function setupCamera() {
       // 1. Setup Camera
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -261,7 +310,7 @@
           audio: false
         });
         VIDEO.srcObject = stream;
-        
+
         // Wait for video to load data
         return new Promise((resolve) => {
           VIDEO.onloadedmetadata = () => {
@@ -273,22 +322,26 @@
       }
     }
 
-    async function loadAI() {
-      // --- IMPROVEMENT 3: LITE MODEL ---
-      // 'mobilenet_v2' is faster for mobile
+    async function runAR() {
+      await setupCamera();
+      console.log("Camera Ready");
+
+      // --- OPTIMIZATION: LITE MODEL ---
+      // 'mobilenet_v2' is a lightweight, mobile-optimized base model that loads much faster
       model = await cocoSsd.load({ base: 'mobilenet_v2' });
-      LOADER.style.display = 'none'; // Hide loader
+      console.log("AI Ready");
+      LOADER.style.display = 'none';
+
       predictLoop();
     }
-
     // --- MAIN LOOP ---
     function predictLoop() {
       // Run prediction
       model.detect(VIDEO).then(predictions => {
-        
+
         // Filter: We only care about objects in our ECO_DATA list
         // and with high confidence (> 60%)
-        const validTargets = predictions.filter(p => 
+        const validTargets = predictions.filter(p =>
           ECO_DATA[p.class] && p.score > 0.60
         );
 
@@ -337,7 +390,7 @@
       UI_LAYER.style.display = 'block';
       NAME_EL.innerText = className;
       CARBON_EL.innerText = ` footprint: ${data.carbon}`;
-      
+
       // Clear and fill steps
       STEPS_EL.innerHTML = '';
       data.steps.forEach(step => {
@@ -350,7 +403,7 @@
     function show3DAvatar(show) {
       // Simple logic: Scale up the tree model when valid object found
       // You can swap src to '#trash-model' based on data if needed
-      if(show) {
+      if (show) {
         AR_AVATAR.setAttribute('scale', '0.5 0.5 0.5'); // Show
       } else {
         AR_AVATAR.setAttribute('scale', '0 0 0'); // Hide
@@ -364,4 +417,5 @@
 
   </script>
 </body>
+
 </html>
