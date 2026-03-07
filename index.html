@@ -64,6 +64,23 @@
       margin-bottom: 4px;
     }
 
+    .warning-banner {
+      background-color: #ff4757;
+      color: white;
+      font-weight: bold;
+      padding: 8px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: none;
+      font-size: 0.9em;
+      animation: flash 1s infinite alternate;
+    }
+
+    @keyframes flash {
+      from { opacity: 1; }
+      to { opacity: 0.7; }
+    }
+
     /* The "Reticle" to guide user aim */
     #reticle {
       position: absolute;
@@ -123,13 +140,14 @@
   <div id="loader">
     <div class="spinner"></div>
     INITIALIZING AR ENGINE...<br>
-    <small style="color:#aaa; display:block; margin-top:8px;">Downloading AI Model (First load only)</small>
+    <small style="color:#aaa; display:block; margin-top:8px;">Downloading AI Model...<br>(This may take a minute on the very first load, but will be instant next time!)</small>
   </div>
 
   <div id="reticle"></div>
 
   <div id="ui-layer">
     <div class="info-card">
+      <div id="obj-warning" class="warning-banner">⚠️ HIGH CARBON FOOTPRINT ⚠️</div>
       <h2 id="obj-name">Detecting...</h2>
       <div class="carbon-stat" id="obj-carbon">---</div>
       <div class="steps">
@@ -408,8 +426,18 @@
       
       // Determine if object is generally "Good/Recyclable" or "Bad/Trash" based on its data
       // (For this demo, we'll assign tree to easily recyclable items, and trash to hazardous/complex items)
-      const recyclableItems = ['bottle', 'bowl', 'book']; // Items that get a Tree
+      const recyclableItems = ['bottle', 'bowl', 'book', 'mouse', 'scissors']; // Items that get a Tree
       const modelType = recyclableItems.includes(className) ? 'tree' : 'trash';
+      
+      const WARNING_EL = document.getElementById('obj-warning');
+      if (modelType === 'trash') {
+        WARNING_EL.style.display = 'block';
+        document.querySelector('.info-card').style.borderColor = '#e74c3c'; // Red border for warning
+      } else {
+        WARNING_EL.style.display = 'none';
+        document.querySelector('.info-card').style.borderColor = '#2ecc71'; // Green border for eco
+      }
+
       show3DAvatar(true, modelType);
     }
 
@@ -420,7 +448,8 @@
           AR_AVATAR.setAttribute('scale', '0.5 0.5 0.5');
         } else {
           AR_AVATAR.setAttribute('gltf-model', '#trash-model');
-          AR_AVATAR.setAttribute('scale', '0.05 0.05 0.05'); // Trash model needs different scale
+          // Scale increased from 0.05 to 0.25 to make it visible
+          AR_AVATAR.setAttribute('scale', '0.25 0.25 0.25'); 
         }
       } else {
         AR_AVATAR.setAttribute('scale', '0 0 0'); // Hide
