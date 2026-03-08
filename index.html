@@ -153,7 +153,8 @@
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false">
-      <a-entity id="ar-group" position="0 0 -2" scale="0 0 0">
+      <a-entity id="ar-group" position="0 0 -2" scale="0 0 0"
+        animation__pos="property: position; dur: 100; easing: linear">
         <!-- Spinning Model -->
         <a-entity id="ar-avatar" gltf-model="#tree-model" position="0 -1.5 0"
           animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
@@ -318,12 +319,16 @@
         const ny = -(centerY / 480) * 2 + 1;
         
         const area = width * height;
-        const zDepth = Math.max(-5, Math.min(-1.5, -300000 / area)); 
+        const zDepth = Math.max(-6, Math.min(-2, -250000 / area)); 
 
-        const posX = nx * (Math.abs(zDepth) * 0.5); 
-        const posY = ny * (Math.abs(zDepth) * 0.5);
+        // Dramatically increase the viewport multiplier so the 3D model 
+        // swings wildly to the left/right/top/bottom to track the object
+        const FOV_MULTIPLIER = 2.5;
+        const posX = nx * Math.abs(zDepth) * FOV_MULTIPLIER; 
+        const posY = ny * Math.abs(zDepth) * FOV_MULTIPLIER;
         
-        VR_GROUP.setAttribute('position', `${posX} ${posY} ${zDepth}`);
+        // Use setAttribute to trigger the A-Frame smooth animation component
+        VR_GROUP.setAttribute('animation__pos', `to: ${posX} ${posY} ${zDepth}`);
         VR_GROUP.setAttribute('scale', '1 1 1');
 
         const recyclableItems = ['bottle', 'bowl', 'book', 'mouse', 'scissors']; 
