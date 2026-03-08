@@ -195,15 +195,20 @@
     async function setupCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
+          video: { facingMode: 'environment', width: 640, height: 480 },
           audio: false
         });
         VIDEO.srcObject = stream;
+        
+        // Wait for the video feed to actually start playing
         return new Promise((resolve) => {
-          VIDEO.onloadedmetadata = () => resolve();
+          VIDEO.onloadedmetadata = () => {
+            VIDEO.play(); // Explicitly play the video
+            resolve();
+          };
         });
       } catch (e) {
-        alert("Camera error: " + e.message);
+        alert("Camera error! Please ensure you have granted camera permissions. Details: " + e.message);
       }
     }
 
@@ -345,7 +350,13 @@
       }
     }
 
-    runAR().catch(e => console.error("Error starting AR:", e));
+    // Start only when the page is fully loaded
+    window.addEventListener('DOMContentLoaded', () => {
+      runAR().catch(e => {
+        console.error("Error starting AR:", e);
+        alert("Failed to initialize AR engine. Please refresh.");
+      });
+    });
   </script>
 </body>
 
