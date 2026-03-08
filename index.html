@@ -221,10 +221,25 @@
   <div id="ui-layer">
     <div class="info-card">
       <div id="obj-warning" class="warning-banner">⚠️ HIGH CARBON FOOTPRINT ⚠️</div>
+      
+      <!-- New Bin Indicator -->
+      <div id="obj-bin" style="display:inline-block; padding: 4px 10px; border-radius: 4px; color: white; font-weight: bold; font-size: 0.8em; margin-bottom: 5px;"></div>
+      
       <h2 id="obj-name">Detecting...</h2>
       <button id="close-card-btn" style="position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 1.2em; cursor: pointer; color: #7f8c8d;">✖</button>
+      
       <div class="carbon-stat" id="obj-carbon">---</div>
+      <!-- New Comparison Indicator -->
+      <div id="obj-comparison" style="color: #7f8c8d; font-size: 0.9em; margin-bottom: 10px; font-style: italic;"></div>
+      
+      <!-- Better Alternatives List -->
+      <div id="obj-alternatives-container" style="display:none; text-align: left; background: #e8f8f5; padding: 8px; border-radius: 6px; margin-bottom: 10px;">
+        <strong style="color: #1abc9c; font-size: 0.85em;">BETTER ALTERNATIVES:</strong>
+        <ul id="obj-alternatives" style="margin: 5px 0 0 0; padding-left: 20px; font-size: 0.85em;"></ul>
+      </div>
+
       <div class="steps">
+        <strong style="font-size: 0.85em; color: #34495e; display:block; margin-bottom: 5px;">DISPOSAL STEPS:</strong>
         <ul id="obj-steps">
           <li>Scan an item...</li>
         </ul>
@@ -259,6 +274,12 @@
     const AR_AVATAR = document.getElementById('ar-avatar');
     const SCAN_BTN = document.getElementById('scan-btn');
     const CLOSE_CARD_BTN = document.getElementById('close-card-btn');
+    
+    // Phase 3 UI Elements
+    const BIN_EL = document.getElementById('obj-bin');
+    const COMP_EL = document.getElementById('obj-comparison');
+    const ALT_CONT_EL = document.getElementById('obj-alternatives-container');
+    const ALT_LIST_EL = document.getElementById('obj-alternatives');
 
     let model = undefined;
 
@@ -277,7 +298,11 @@
     const ECO_DATA = {
       'laptop': {
         carbon: '331kg CO2e',
+        comparison: '🚗 Driving 1,300 km',
         points: -30,
+        bin: 'E-waste',
+        binColor: '#f1c40f', // Yellow
+        alternatives: ['Repair before replacing', 'Buy refurbished'],
         steps: [
           '1. BACKUP & WIPE: Use factory reset to protect personal data.',
           '2. BATTERY SAFETY: If removable, tape terminals to prevent fire.',
@@ -288,7 +313,11 @@
       },
       'cell phone': {
         carbon: '63kg CO2e',
+        comparison: '⚡ Charging phone 7,500 times',
         points: -15,
+        bin: 'E-waste',
+        binColor: '#f1c40f', // Yellow
+        alternatives: ['Fairphone', 'Keep for 4+ years'],
         steps: [
           '1. CRITICAL MINERALS: Contains gold, cobalt, and rare earths.',
           '2. BATTERY HAZARD: Swollen batteries need special handling.',
@@ -299,7 +328,11 @@
       },
       'keyboard': {
         carbon: '19kg CO2e',
+        comparison: '🔋 2,200 phone charges',
         points: -5,
+        bin: 'E-waste',
+        binColor: '#f1c40f', // Yellow
+        alternatives: ['Mechanical (repairable) keywords'],
         steps: [
           '1. MATERIAL: Mostly ABS plastic and circuit membranes.',
           '2. CLEAN: Remove keycaps to recycle plastic separately if possible.',
@@ -310,7 +343,11 @@
       },
       'mouse': {
         carbon: '12kg CO2e',
+        comparison: '💡 300 days of an LED bulb',
         points: -5,
+        bin: 'E-waste',
+        binColor: '#f1c40f', // Yellow
+        alternatives: ['Wired mice (no batteries needed)'],
         steps: [
           '1. BATTERIES: Remove AA/AAA batteries immediately.',
           '2. WIRELESS DONGLE: Don\'t forget the USB receiver inside.',
@@ -321,7 +358,11 @@
       },
       'tv': {
         carbon: '800kg+ CO2e',
+        comparison: '✈️ 1 multi-hour flight',
         points: -50,
+        bin: 'Hazardous / E-waste',
+        binColor: '#e74c3c', // Red
+        alternatives: ['Projectors (less e-waste)'],
         steps: [
           '1. HEAVY METALS: Older screens may contain mercury.',
           '2. SAFETY: Panel glass can shatter; do not break.',
@@ -332,7 +373,11 @@
       },
       'remote': {
         carbon: '2kg CO2e',
+        comparison: '🚗 Driving 8 km',
         points: -10,
+        bin: 'E-waste',
+        binColor: '#f1c40f', // Yellow
+        alternatives: ['Rechargeable batteries', 'Phone app remotes'],
         steps: [
           '1. BATTERY CHECK: Leaking batteries are toxic—handle with gloves.',
           '2. RUBBER BUTTONS: Remove keypad if separating materials.',
@@ -343,7 +388,11 @@
       },
       'bottle': {
         carbon: '82g CO2e',
+        comparison: '📱 Charging phone 10 times',
         points: 10,
+        bin: 'Dry Waste / Plastic',
+        binColor: '#3498db', // Blue
+        alternatives: ['Steel bottle', 'Glass bottle', 'Refillable thermos'],
         steps: [
           '1. MATERIAL ID: Check for #1 (PET) or #2 (HDPE) symbol.',
           '2. RINSE: Food residue contaminates the whole batch.',
@@ -354,7 +403,11 @@
       },
       'cup': {
         carbon: '110g CO2e (Ceramic)',
+        comparison: '☕ Making 4 cups of coffee',
         points: -5,
+        bin: 'Dry Waste',
+        binColor: '#3498db', // Blue
+        alternatives: ['Bring your own mug', 'Edible cups'],
         steps: [
           '1. PAPER CUPS: Lined with plastic—usually NOT recyclable.',
           '2. PLASTIC CUPS: Check number (#5 PP is common).',
@@ -365,7 +418,11 @@
       },
       'wine glass': {
         carbon: '250g CO2e',
+        comparison: '💡 10 days of an LED bulb',
         points: -5,
+        bin: 'Hazardous / Trash',
+        binColor: '#e74c3c', // Red
+        alternatives: ['Stainless steel wine tumblers', 'Thick durable glass'],
         steps: [
           '1. WARNING: Different melting point than bottle glass.',
           '2. NO RECYCLE BIN: Do NOT mix with jar/bottle recycling.',
@@ -376,7 +433,11 @@
       },
       'bowl': {
         carbon: 'Varies',
+        comparison: '🍲 Varies by material',
         points: 5,
+        bin: 'Dry Waste',
+        binColor: '#3498db', // Blue
+        alternatives: ['Wooden bowls', 'Stainless steel'],
         steps: [
           '1. CERAMIC/CLAY: Landfill only (cannot be melted down).',
           '2. GLASS (PYREX): Heat-treated; do NOT recycle with bottles.',
@@ -387,7 +448,11 @@
       },
       'book': {
         carbon: '1.2kg CO2e',
+        comparison: '🚗 Driving 5 km',
         points: 15,
+        bin: 'Dry Waste / Paper',
+        binColor: '#3498db', // Blue
+        alternatives: ['E-readers', 'Library cards'],
         steps: [
           '1. PAPER TYPE: White paper is high value; glossy is lower.',
           '2. GLUE/SPINE: Hardcovers must have covers ripped off.',
@@ -398,7 +463,11 @@
       },
       'scissors': {
         carbon: '15g CO2e',
+        comparison: '📱 Charging phone 2 times',
         points: 10,
+        bin: 'Dry Waste / Metal',
+        binColor: '#3498db', // Blue
+        alternatives: ['All-metal scissors (last a lifetime)'],
         steps: [
           '1. COMPOSITE: Metal blades + Plastic handles = Nightmare.',
           '2. SEPARATE: Unscrew pivot screw to separate materials.',
@@ -554,6 +623,24 @@
       UI_LAYER.style.display = 'block';
       NAME_EL.innerText = className;
       CARBON_EL.innerText = ` footprint: ${data.carbon}`;
+
+      // --- PHASE 3: Bin, Comparison, and Alternatives ---
+      BIN_EL.innerText = `Discard in: ${data.bin}`;
+      BIN_EL.style.backgroundColor = data.binColor;
+
+      COMP_EL.innerText = `Equivalent to: ${data.comparison}`;
+
+      if (data.alternatives && data.alternatives.length > 0) {
+        ALT_CONT_EL.style.display = 'block';
+        ALT_LIST_EL.innerHTML = '';
+        data.alternatives.forEach(alt => {
+          const li = document.createElement('li');
+          li.innerText = alt;
+          ALT_LIST_EL.appendChild(li);
+        });
+      } else {
+        ALT_CONT_EL.style.display = 'none';
+      }
 
       // Clear and fill steps
       STEPS_EL.innerHTML = '';
