@@ -77,8 +77,13 @@
     }
 
     @keyframes flash {
-      from { opacity: 1; }
-      to { opacity: 0.7; }
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0.7;
+      }
     }
 
     /* The "Reticle" to guide user aim */
@@ -140,7 +145,8 @@
   <div id="loader">
     <div class="spinner"></div>
     INITIALIZING AR ENGINE...<br>
-    <small style="color:#aaa; display:block; margin-top:8px;">Downloading AI Model...<br>(This may take a minute on the very first load, but will be instant next time!)</small>
+    <small style="color:#aaa; display:block; margin-top:8px;">Downloading AI Model...<br>(This may take a minute on the
+      very first load, but will be instant next time!)</small>
   </div>
 
   <div id="reticle"></div>
@@ -394,21 +400,10 @@
       // Only update UI if we are SURE (passed threshold)
       if (frameConsistencyCounter >= CONSISTENCY_THRESHOLD) {
         updateUI(className); // updateUI now calls show3DAvatar internally
-        
-        // --- 3D POSITION TRACKING ---
-        // bbox is [x, y, width, height] in video pixel coordinates.
-        // We find the center of the bounding box
-        const centerX = bbox[0] + (bbox[2] / 2);
-        const centerY = bbox[1] + (bbox[3] / 2);
-        
-        // Convert to normalized device coordinates (-1 to +1)
-        const nx = (centerX / VIDEO.videoWidth) * 2 - 1;
-        const ny = -(centerY / VIDEO.videoHeight) * 2 + 1; // Y is inverted in 3D
 
-        // Move the 3D Avatar (Tree/Trash) to match the real-world location
-        // Multipliers (like 1.5) depend on camera FOV, tweak to make it align well
-        const zDepth = -2; // Keep it fixed 2 meters in front of the camera
-        AR_AVATAR.setAttribute('position', `${nx * 1.5} ${ny * 1.5} ${zDepth}`);
+        // --- REVERT 3D POSITION TRACKING ---
+        // We removed the code that moves the Avatar to (nx, ny, zDepth)
+        // so it stays fixed to the center of the screen as requested.
       }
     }
 
@@ -438,12 +433,12 @@
         li.innerText = step;
         STEPS_EL.appendChild(li);
       });
-      
+
       // Determine if object is generally "Good/Recyclable" or "Bad/Trash" based on its data
       // (For this demo, we'll assign tree to easily recyclable items, and trash to hazardous/complex items)
       const recyclableItems = ['bottle', 'bowl', 'book', 'mouse', 'scissors']; // Items that get a Tree
       const modelType = recyclableItems.includes(className) ? 'tree' : 'trash';
-      
+
       const WARNING_EL = document.getElementById('obj-warning');
       if (modelType === 'trash') {
         WARNING_EL.style.display = 'block';
@@ -458,13 +453,16 @@
 
     function show3DAvatar(show, modelType = 'tree') {
       if (show) {
+        // Lock it directly to the center of the camera
+        AR_AVATAR.setAttribute('position', '0 0 -2');
+
         if (modelType === 'tree') {
           AR_AVATAR.setAttribute('gltf-model', '#tree-model');
           AR_AVATAR.setAttribute('scale', '0.5 0.5 0.5');
         } else {
           AR_AVATAR.setAttribute('gltf-model', '#trash-model');
           // Scale increased from 0.05 to 0.25 to make it visible
-          AR_AVATAR.setAttribute('scale', '0.25 0.25 0.25'); 
+          AR_AVATAR.setAttribute('scale', '0.25 0.25 0.25');
         }
       } else {
         AR_AVATAR.setAttribute('scale', '0 0 0'); // Hide
