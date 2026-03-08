@@ -612,8 +612,8 @@
           lastDetected = topResult.class;
           framesWithoutDetection = 0;
           
-          // Show the UI card
-          updateUI(topResult.class);
+          // Show the UI card & pass bounding box for AR positioning
+          updateUI(topResult.class, topResult.bbox);
         } else {
           // Tell user nothing was found
           alert("Couldn't identify a valid recyclable piece of waste. Try getting closer or ensuring good lighting!");
@@ -623,7 +623,7 @@
 
     // --- 3D AVATAR & UI LOGIC ---
 
-    function updateUI(className) {
+    function updateUI(className, bbox) {
       const data = ECO_DATA[className];
       if (!data) return;
 
@@ -680,13 +680,31 @@
         document.querySelector('.info-card').style.borderColor = '#27ae60';
       }
 
-      show3DAvatar(true, modelType);
+      show3DAvatar(true, modelType, bbox);
     }
 
-    function show3DAvatar(show, modelType = 'tree') {
-      if (show) {
-        // Lock it directly to the center of the camera
-        AR_AVATAR.setAttribute('position', '0 0 -2');
+    function show3DAvatar(show, modelType = 'tree', bbox = null) {
+      if (show && bbox) {
+        // --- TRUE AR TRACKING (Restored) ---
+        // Convert 2D camera coordinates to 3D AR space coordinates
+        const [x, y, width, height] = bbox;
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+
+        // Map normalized coordinates [-1 to 1]
+        // Base viewport is roughly 640x480 from the setupCamera standard constraints
+        const nx = (centerX / 640) * 2 - 1;
+        const ny = -(centerY / 480) * 2 + 1;
+        
+        // Depth mapping: Bigger bounding box = closer to camera
+        const area = width * height;
+        const zDepth = Math.max(-5, Math.min(-1.5, -300000 / area)); // Adjust depth based on box area
+
+        // Set the dynamic physical position instead of a hardcoded center
+        const posX = nx * (Math.abs(zDepth) * 0.5); // Spread factor
+        const posY = ny * (Math.abs(zDepth) * 0.5);
+        
+        AR_AVATAR.setAttribute('position', `${posX} ${posY} ${zDepth}`);
 
         if (modelType === 'tree') {
           AR_AVATAR.setAttribute('gltf-model', '#tree-model');
