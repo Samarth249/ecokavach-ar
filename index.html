@@ -135,7 +135,36 @@
 
       100% {
         transform: rotate(360deg);
-      }
+    /* Scan Button */
+    #scan-btn {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #27ae60;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 1.2em;
+      font-weight: bold;
+      border-radius: 30px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      z-index: 20;
+      transition: all 0.2s ease;
+      display: none; /* Hidden until AI loads */
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #scan-btn:active {
+      transform: translateX(-50%) scale(0.95);
+      background: #219653;
+    }
+    
+    #scan-btn:disabled {
+      background: #95a5a6;
+      cursor: wait;
     }
   </style>
 </head>
@@ -151,10 +180,13 @@
 
   <div id="reticle"></div>
 
+  <button id="scan-btn">🔍 Scan Object</button>
+
   <div id="ui-layer">
     <div class="info-card">
       <div id="obj-warning" class="warning-banner">⚠️ HIGH CARBON FOOTPRINT ⚠️</div>
       <h2 id="obj-name">Detecting...</h2>
+      <button id="close-card-btn" style="position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 1.2em; cursor: pointer; color: #7f8c8d;">✖</button>
       <div class="carbon-stat" id="obj-carbon">---</div>
       <div class="steps">
         <ul id="obj-steps">
@@ -189,6 +221,8 @@
     const STEPS_EL = document.getElementById('obj-steps');
     const LOADER = document.getElementById('loader');
     const AR_AVATAR = document.getElementById('ar-avatar');
+    const SCAN_BTN = document.getElementById('scan-btn');
+    const CLOSE_CARD_BTN = document.getElementById('close-card-btn');
 
     let model = undefined;
 
@@ -357,13 +391,31 @@
       model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
       console.log("AI Ready");
       LOADER.style.display = 'none';
+      SCAN_BTN.style.display = 'block'; // Show the button when ready
 
-      predictLoop();
+      // Bind the manual scan button
+      SCAN_BTN.addEventListener('click', runSingleScan);
+      
+      // Bind the close card button
+      CLOSE_CARD_BTN.addEventListener('click', () => {
+        UI_LAYER.style.display = 'none';
+        show3DAvatar(false);
+      });
     }
-    // --- MAIN LOOP ---
-    function predictLoop() {
-      // Run prediction
+
+    // --- MANUAL SCAN LOGIC ---
+    function runSingleScan() {
+      // UI Feedback
+      SCAN_BTN.disabled = true;
+      SCAN_BTN.innerText = "Scanning...";
+      UI_LAYER.style.display = 'none';
+      show3DAvatar(false);
+
+      // Run a single prediction
       model.detect(VIDEO).then(predictions => {
+        // Reset button
+        SCAN_BTN.disabled = false;
+        SCAN_BTN.innerText = "🔍 Scan Object";
 
         // Filter: We only care about objects in our ECO_DATA list
         // and with high confidence (> 60%)
@@ -376,47 +428,17 @@
           validTargets.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
           const topResult = validTargets[0];
 
-          handleDetection(topResult.class, topResult.bbox);
+          // Since it's a manual scan, we don't need frames consistency anymore!
+          // We instantly show the result of what they snapped.
+          updateUI(topResult.class);
         } else {
-          handleNoDetection();
+          // Tell user nothing was found
+          alert("Couldn't identify a valid recyclable piece of waste. Try getting closer or ensuring good lighting!");
         }
-
-        // Loop again via requestAnimationFrame for smooth video, 
-        // but we could throttle this if phone gets hot.
-        requestAnimationFrame(predictLoop);
       });
     }
 
-    function handleDetection(className, bbox) {
-      framesWithoutDetection = 0; // Reset hide timer because we saw something
-
-      if (className === lastDetected) {
-        frameConsistencyCounter++;
-      } else {
-        lastDetected = className;
-        frameConsistencyCounter = 1; // Start counting the new object
-      }
-
-      // Only update UI if we are SURE (passed threshold)
-      if (frameConsistencyCounter >= CONSISTENCY_THRESHOLD) {
-        updateUI(className); // updateUI now calls show3DAvatar internally
-
-        // --- REVERT 3D POSITION TRACKING ---
-        // We removed the code that moves the Avatar to (nx, ny, zDepth)
-        // so it stays fixed to the center of the screen as requested.
-      }
-    }
-
-    function handleNoDetection() {
-      framesWithoutDetection++;
-      if (framesWithoutDetection > HIDE_THRESHOLD) {
-        // Clear old items if nothing is detected for a while
-        lastDetected = null;
-        frameConsistencyCounter = 0;
-        UI_LAYER.style.display = 'none';
-        show3DAvatar(false);
-      }
-    }
+    // --- 3D AVATAR & UI LOGIC ---
 
     function updateUI(className) {
       const data = ECO_DATA[className];
