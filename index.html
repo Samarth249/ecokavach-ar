@@ -1,92 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
   <meta charset="utf-8">
-  <title>Eco-Kavach AR Scanner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Eco-Kavach Pro AR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <!-- A-Frame and AR.js -->
+  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+
+  <!-- TensorFlow.js and COCO-SSD -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
+  <!-- Shared Data -->
+  <script src="data.js"></script>
+
   <style>
-    /* UI Overlay Styling */
     body {
       margin: 0;
       overflow: hidden;
       font-family: 'Arial', sans-serif;
     }
 
-    #ui-layer {
-      position: absolute;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 90%;
-      max-width: 400px;
-      z-index: 10;
-      display: none;
-      /* Hidden until object found */
-    }
-
-    .info-card {
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 15px;
-      padding: 20px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-      text-align: center;
-      border: 2px solid #2ecc71;
-    }
-
-    .info-card h2 {
-      margin: 0 0 10px 0;
-      color: #27ae60;
-      text-transform: capitalize;
-    }
-
-    .carbon-stat {
-      font-size: 1.2em;
-      font-weight: bold;
-      color: #e74c3c;
-      margin-bottom: 10px;
-    }
-
-    .steps {
-      font-size: 0.9em;
-      text-align: left;
-      background: #f0f9f0;
-      padding: 10px;
-      border-radius: 8px;
-    }
-
-    .steps li {
-      margin-bottom: 4px;
-    }
-
-    .warning-banner {
-      background-color: #ff4757;
-      color: white;
-      font-weight: bold;
-      padding: 8px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      display: none;
-      font-size: 0.9em;
-      animation: flash 1s infinite alternate;
-    }
-
-    @keyframes flash {
-      from {
-        opacity: 1;
-      }
-
-      to {
-        opacity: 0.7;
-      }
-    }
-
-    /* The "Reticle" to guide user aim */
     #reticle {
       position: absolute;
       top: 50%;
@@ -101,7 +37,6 @@
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     }
 
-    /* Loading screen */
     #loader {
       position: absolute;
       top: 50%;
@@ -129,16 +64,10 @@
     }
 
     @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
-    /* Scan Button */
     #scan-btn {
       position: absolute;
       bottom: 40px;
@@ -155,7 +84,7 @@
       cursor: pointer;
       z-index: 20;
       transition: all 0.2s ease;
-      display: none; /* Hidden until AI loads */
+      display: none; 
       text-transform: uppercase;
       letter-spacing: 1px;
     }
@@ -170,7 +99,6 @@
       cursor: wait;
     }
 
-    /* Gamification HUD */
     #score-hud {
       position: absolute;
       top: 15px;
@@ -218,35 +146,6 @@
 
   <button id="scan-btn">🔍 Scan Object</button>
 
-  <div id="ui-layer">
-    <div class="info-card">
-      <div id="obj-warning" class="warning-banner">⚠️ HIGH CARBON FOOTPRINT ⚠️</div>
-      
-      <!-- New Bin Indicator -->
-      <div id="obj-bin" style="display:inline-block; padding: 4px 10px; border-radius: 4px; color: white; font-weight: bold; font-size: 0.8em; margin-bottom: 5px;"></div>
-      
-      <h2 id="obj-name">Detecting...</h2>
-      <button id="close-card-btn" style="position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 1.2em; cursor: pointer; color: #7f8c8d;">✖</button>
-      
-      <div class="carbon-stat" id="obj-carbon">---</div>
-      <!-- New Comparison Indicator -->
-      <div id="obj-comparison" style="color: #7f8c8d; font-size: 0.9em; margin-bottom: 10px; font-style: italic;"></div>
-      
-      <!-- Better Alternatives List -->
-      <div id="obj-alternatives-container" style="display:none; text-align: left; background: #e8f8f5; padding: 8px; border-radius: 6px; margin-bottom: 10px;">
-        <strong style="color: #1abc9c; font-size: 0.85em;">BETTER ALTERNATIVES:</strong>
-        <ul id="obj-alternatives" style="margin: 5px 0 0 0; padding-left: 20px; font-size: 0.85em;"></ul>
-      </div>
-
-      <div class="steps">
-        <strong style="font-size: 0.85em; color: #34495e; display:block; margin-bottom: 5px;">DISPOSAL STEPS:</strong>
-        <ul id="obj-steps">
-          <li>Scan an item...</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
   <a-scene embedded vr-mode-ui="enabled: false">
     <a-assets>
       <a-asset-item id="tree-model" src="tree.glb"></a-asset-item>
@@ -254,8 +153,17 @@
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false">
-      <a-entity id="ar-avatar" gltf-model="#tree-model" position="0 0 -2" scale="0 0 0"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
+      <a-entity id="ar-group" position="0 0 -2" scale="0 0 0">
+        <!-- Spinning Model -->
+        <a-entity id="ar-avatar" gltf-model="#tree-model" position="0 -1.5 0"
+          animation="property: rotation; to: 0 360 0; loop: true; dur: 5000">
+        </a-entity>
+        
+        <!-- NEW VR WARNING/INFO PANEL -->
+        <a-entity id="vr-panel" position="0 2.5 0">
+          <a-plane id="vr-bg" width="3.5" height="1" color="#e74c3c" opacity="0.95" material="shader: flat; side: double"></a-plane>
+          <a-text id="vr-text" value="HAZARDOUS" align="center" position="0 0 0.05" width="10" color="#fff" font="kelsonsans"></a-text>
+        </a-entity>
       </a-entity>
     </a-camera>
   </a-scene>
@@ -266,237 +174,33 @@
   <script>
     // --- CONFIGURATION ---
     const VIDEO = document.getElementById('webcam');
-    const UI_LAYER = document.getElementById('ui-layer');
-    const NAME_EL = document.getElementById('obj-name');
-    const CARBON_EL = document.getElementById('obj-carbon');
-    const STEPS_EL = document.getElementById('obj-steps');
     const LOADER = document.getElementById('loader');
-    const AR_AVATAR = document.getElementById('ar-avatar');
     const SCAN_BTN = document.getElementById('scan-btn');
-    const CLOSE_CARD_BTN = document.getElementById('close-card-btn');
     
-    // Phase 3 UI Elements
-    const BIN_EL = document.getElementById('obj-bin');
-    const COMP_EL = document.getElementById('obj-comparison');
-    const ALT_CONT_EL = document.getElementById('obj-alternatives-container');
-    const ALT_LIST_EL = document.getElementById('obj-alternatives');
+    // AR DOM Elements
+    const VR_GROUP = document.getElementById('ar-group');
+    const AR_AVATAR = document.getElementById('ar-avatar');
+    const VR_TEXT = document.getElementById('vr-text');
+    const VR_BG = document.getElementById('vr-bg');
 
     let model = undefined;
-
-    // --- IMPROVEMENT 4: HYSTERESIS (Stability Check) ---
-    // We only update the UI if we see the same object 'N' times in a row.
     let lastDetected = null;
-    let frameConsistencyCounter = 0;
-    const CONSISTENCY_THRESHOLD = 2; // Reduced from 5 to 2 for much faster detection feeling
     let framesWithoutDetection = 0;
-    const HIDE_THRESHOLD = 1; // Super sensitive! If it misses 1 check, it vanishes instantly.
+    const HIDE_THRESHOLD = 1; 
 
-    // --- IMPROVEMENT 5: SMART LABEL MAPPING (Eco-Logic) ---
-    // Maps generic COCO-SSD labels to Eco-Kavach data
+    // Initialize Score
+    document.getElementById('eco-points').innerText = getEcoScore();
 
-    // --- UPDATED ECO-LOGIC MAP (High Accuracy) ---
-    const ECO_DATA = {
-      'laptop': {
-        carbon: '331kg CO2e',
-        comparison: '🚗 Driving 1,300 km',
-        points: -30,
-        bin: 'E-waste',
-        binColor: '#f1c40f', // Yellow
-        alternatives: ['Repair before replacing', 'Buy refurbished'],
-        steps: [
-          '1. BACKUP & WIPE: Use factory reset to protect personal data.',
-          '2. BATTERY SAFETY: If removable, tape terminals to prevent fire.',
-          '3. DONATION FIRST: If functional, donate to schools/NGOs.',
-          '4. NO LANDFILL: Contains lead, mercury, and cadmium.',
-          '5. LOCATE: Find certified "R2" or "e-Stewards" recycler.'
-        ]
-      },
-      'cell phone': {
-        carbon: '63kg CO2e',
-        comparison: '⚡ Charging phone 7,500 times',
-        points: -15,
-        bin: 'E-waste',
-        binColor: '#f1c40f', // Yellow
-        alternatives: ['Fairphone', 'Keep for 4+ years'],
-        steps: [
-          '1. CRITICAL MINERALS: Contains gold, cobalt, and rare earths.',
-          '2. BATTERY HAZARD: Swollen batteries need special handling.',
-          '3. FACTORY RESET: Wipe all accounts before disposal.',
-          '4. TRADE-IN: Many carriers offer credit for old devices.',
-          '5. ACCESSORIES: Cables and chargers are also E-waste.'
-        ]
-      },
-      'keyboard': {
-        carbon: '19kg CO2e',
-        comparison: '🔋 2,200 phone charges',
-        points: -5,
-        bin: 'E-waste',
-        binColor: '#f1c40f', // Yellow
-        alternatives: ['Mechanical (repairable) keywords'],
-        steps: [
-          '1. MATERIAL: Mostly ABS plastic and circuit membranes.',
-          '2. CLEAN: Remove keycaps to recycle plastic separately if possible.',
-          '3. CABLE: Tie the cord neatly; do not cut it off.',
-          '4. E-WASTE BIN: Do not place in standard home recycling.',
-          '5. REUSE: USB keyboards work with almost any device.'
-        ]
-      },
-      'mouse': {
-        carbon: '12kg CO2e',
-        comparison: '💡 300 days of an LED bulb',
-        points: -5,
-        bin: 'E-waste',
-        binColor: '#f1c40f', // Yellow
-        alternatives: ['Wired mice (no batteries needed)'],
-        steps: [
-          '1. BATTERIES: Remove AA/AAA batteries immediately.',
-          '2. WIRELESS DONGLE: Don\'t forget the USB receiver inside.',
-          '3. CIRCUIT BOARD: Contains small amounts of copper/gold.',
-          '4. E-WASTE: Drop off at electronics store bins.',
-          '5. REPAIR: Clicking issues are often fixable with cleaning.'
-        ]
-      },
-      'tv': {
-        carbon: '800kg+ CO2e',
-        comparison: '✈️ 1 multi-hour flight',
-        points: -50,
-        bin: 'Hazardous / E-waste',
-        binColor: '#e74c3c', // Red
-        alternatives: ['Projectors (less e-waste)'],
-        steps: [
-          '1. HEAVY METALS: Older screens may contain mercury.',
-          '2. SAFETY: Panel glass can shatter; do not break.',
-          '3. TRANSPORT: Requires bulk pickup or dedicated drop-off.',
-          '4. PLASTIC BACK: The casing is recyclable, but only by pros.',
-          '5. ENERGY: New TVs use less power; recycle old plasmas.'
-        ]
-      },
-      'remote': {
-        carbon: '2kg CO2e',
-        comparison: '🚗 Driving 8 km',
-        points: -10,
-        bin: 'E-waste',
-        binColor: '#f1c40f', // Yellow
-        alternatives: ['Rechargeable batteries', 'Phone app remotes'],
-        steps: [
-          '1. BATTERY CHECK: Leaking batteries are toxic—handle with gloves.',
-          '2. RUBBER BUTTONS: Remove keypad if separating materials.',
-          '3. PLASTIC SHELL: Often recyclable rigid plastic.',
-          '4. BOARD: The green circuit board goes to E-waste.',
-          '5. FIX: Clean battery contacts with vinegar before tossing.'
-        ]
-      },
-      'bottle': {
-        carbon: '82g CO2e',
-        comparison: '📱 Charging phone 10 times',
-        points: 10,
-        bin: 'Dry Waste / Plastic',
-        binColor: '#3498db', // Blue
-        alternatives: ['Steel bottle', 'Glass bottle', 'Refillable thermos'],
-        steps: [
-          '1. MATERIAL ID: Check for #1 (PET) or #2 (HDPE) symbol.',
-          '2. RINSE: Food residue contaminates the whole batch.',
-          '3. CRUSH: Flatten to save space in the truck.',
-          '4. CAP ON/OFF: Check local rules (caps are different plastic).',
-          '5. LABEL: Plastic shrink wraps often need removal.'
-        ]
-      },
-      'cup': {
-        carbon: '110g CO2e (Ceramic)',
-        comparison: '☕ Making 4 cups of coffee',
-        points: -5,
-        bin: 'Dry Waste',
-        binColor: '#3498db', // Blue
-        alternatives: ['Bring your own mug', 'Edible cups'],
-        steps: [
-          '1. PAPER CUPS: Lined with plastic—usually NOT recyclable.',
-          '2. PLASTIC CUPS: Check number (#5 PP is common).',
-          '3. CERAMIC: If broken, it goes in GENERAL TRASH (not glass bin).',
-          '4. STYROFOAM: Avoid entirely; extremely hard to recycle.',
-          '5. LID: Plastic lids are usually recyclable; separate them.'
-        ]
-      },
-      'wine glass': {
-        carbon: '250g CO2e',
-        comparison: '💡 10 days of an LED bulb',
-        points: -5,
-        bin: 'Hazardous / Trash',
-        binColor: '#e74c3c', // Red
-        alternatives: ['Stainless steel wine tumblers', 'Thick durable glass'],
-        steps: [
-          '1. WARNING: Different melting point than bottle glass.',
-          '2. NO RECYCLE BIN: Do NOT mix with jar/bottle recycling.',
-          '3. DONATE: Thrift stores take intact stemware.',
-          '4. BROKEN?: Wrap in newspaper and trash safely.',
-          '5. LEAD: Crystal glasses contain lead; hazardous waste.'
-        ]
-      },
-      'bowl': {
-        carbon: 'Varies',
-        comparison: '🍲 Varies by material',
-        points: 5,
-        bin: 'Dry Waste',
-        binColor: '#3498db', // Blue
-        alternatives: ['Wooden bowls', 'Stainless steel'],
-        steps: [
-          '1. CERAMIC/CLAY: Landfill only (cannot be melted down).',
-          '2. GLASS (PYREX): Heat-treated; do NOT recycle with bottles.',
-          '3. PLASTIC: Wash grease completely before recycling.',
-          '4. METAL: Stainless steel bowls are 100% recyclable.',
-          '5. REPURPOSE: Use as planter or organizer if chipped.'
-        ]
-      },
-      'book': {
-        carbon: '1.2kg CO2e',
-        comparison: '🚗 Driving 5 km',
-        points: 15,
-        bin: 'Dry Waste / Paper',
-        binColor: '#3498db', // Blue
-        alternatives: ['E-readers', 'Library cards'],
-        steps: [
-          '1. PAPER TYPE: White paper is high value; glossy is lower.',
-          '2. GLUE/SPINE: Hardcovers must have covers ripped off.',
-          '3. MOISTURE: Wet books cannot be recycled (mold risk).',
-          '4. DONATE: Little Free Libraries are better than recycling.',
-          '5. AGE: Very old yellowed paper has short fibers (compost).'
-        ]
-      },
-      'scissors': {
-        carbon: '15g CO2e',
-        comparison: '📱 Charging phone 2 times',
-        points: 10,
-        bin: 'Dry Waste / Metal',
-        binColor: '#3498db', // Blue
-        alternatives: ['All-metal scissors (last a lifetime)'],
-        steps: [
-          '1. COMPOSITE: Metal blades + Plastic handles = Nightmare.',
-          '2. SEPARATE: Unscrew pivot screw to separate materials.',
-          '3. METAL BIN: Blades go to scrap metal recycling.',
-          '4. SHARP: Tape blades if putting in mixed recycling.',
-          '5. MAINTAIN: Sharpening extends life indefinitely.'
-        ]
-      }
-    };
-
-    // --- GAME STATE (localStorage) ---
-    let userScore = parseInt(localStorage.getItem('ecoScore')) || 0;
-    document.getElementById('eco-points').innerText = userScore;
-    
     // --- INITIALIZATION ---
     async function setupCamera() {
-      // 1. Setup Camera
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
           audio: false
         });
         VIDEO.srcObject = stream;
-
-        // Wait for video to load data
         return new Promise((resolve) => {
-          VIDEO.onloadedmetadata = () => {
-            resolve();
-          };
+          VIDEO.onloadedmetadata = () => resolve();
         });
       } catch (e) {
         alert("Camera error: " + e.message);
@@ -505,53 +209,34 @@
 
     async function runAR() {
       await setupCamera();
-      console.log("Camera Ready");
-
-      // Phase 4: Hide loader immediately so camera shows instantly
+      
       LOADER.style.display = 'none';
       SCAN_BTN.style.display = 'block'; 
       SCAN_BTN.disabled = true;
       SCAN_BTN.innerText = "⏳ Loading AI...";
 
-      // Load AI non-blocking
       cocoSsd.load({ base: 'lite_mobilenet_v2' }).then(loadedModel => {
         model = loadedModel;
-        console.log("AI Ready");
         SCAN_BTN.disabled = false;
         SCAN_BTN.innerText = "🔍 Scan Object";
 
-        // Bind the manual scan button
         SCAN_BTN.addEventListener('click', runSingleScan);
-        
-        // Start background tracking to clear UI when object leaves frame
         trackObject();
-      });
-      
-      // Bind the close card button
-      CLOSE_CARD_BTN.addEventListener('click', () => {
-        UI_LAYER.style.display = 'none';
-        show3DAvatar(false);
-        lastDetected = null; // Clear so tracking doesn't immediately bring it back
       });
     }
     
     // --- BACKGROUND TRACKING LOOP ---
-    // This runs continuously but ONLY to check if the currently displayed object is lost.
-    // It does not trigger new scans or update the UI with new objects.
     function trackObject() {
       if (lastDetected) {
         model.detect(VIDEO).then(predictions => {
-          // Check if the current object we're showing is still in view
           const isStillThere = predictions.some(p => p.class === lastDetected && p.score > 0.40);
-          
           if (!isStillThere) {
             handleNoDetection();
           } else {
-            framesWithoutDetection = 0; // Reset
+            framesWithoutDetection = 0;
           }
         });
       }
-      // Run every ~100ms to clear screen extremely quickly when object moves
       setTimeout(() => requestAnimationFrame(trackObject), 100);
     }
 
@@ -560,168 +245,107 @@
       if (framesWithoutDetection > HIDE_THRESHOLD) {
         lastDetected = null;
         framesWithoutDetection = 0;
-        UI_LAYER.style.display = 'none';
         show3DAvatar(false);
       }
     }
 
     // --- MANUAL SCAN LOGIC ---
     function runSingleScan() {
-      // UI Feedback
       SCAN_BTN.disabled = true;
       SCAN_BTN.innerText = "Scanning...";
-      UI_LAYER.style.display = 'none';
       show3DAvatar(false);
 
-      // Run a single prediction
       model.detect(VIDEO).then(predictions => {
-        // Reset button
-        SCAN_BTN.disabled = false;
-        SCAN_BTN.innerText = "🔍 Scan Object";
-
-        // Filter: We only care about objects in our ECO_DATA list
-        // and with high confidence (> 60%)
-        const validTargets = predictions.filter(p =>
-          ECO_DATA[p.class] && p.score > 0.60
-        );
+        const validTargets = predictions.filter(p => ECO_DATA[p.class] && p.score > 0.60);
 
         if (validTargets.length > 0) {
-          // Sort by size (area) to get the "main" object closest to camera
           validTargets.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
           const topResult = validTargets[0];
-
-          // Since it's a manual scan, we don't need frames consistency anymore!
-          // We instantly show the result of what they snapped.
           
-          const itemData = ECO_DATA[topResult.class];
+          let userScore = updateEcoScore(0); // Ensure score initializes
           
-          // Award points
-          userScore += itemData.points;
-          localStorage.setItem('ecoScore', userScore);
-          
-          // Update HUD
           const scoreEl = document.getElementById('eco-points');
           scoreEl.innerText = userScore;
-          if (itemData.points > 0) {
-            scoreEl.style.color = '#2ecc71'; // Green for good
+          if (ECO_DATA[topResult.class].points > 0) {
+            scoreEl.style.color = '#2ecc71'; 
           } else {
-            scoreEl.style.color = '#e74c3c'; // Red for bad
+            scoreEl.style.color = '#e74c3c'; 
           }
           
-          // Set as active object for the tracking loop to watch
           lastDetected = topResult.class;
           framesWithoutDetection = 0;
           
-          // Show the UI card & pass bounding box for AR positioning
-          updateUI(topResult.class, topResult.bbox);
+          // Show the VR hologram & pass bounding box
+          show3DAvatar(true, topResult.class, topResult.bbox);
+          
+          SCAN_BTN.innerText = "Redirecting...";
+          
+          // Redirect to Bootstrap dashboard after 2.5 seconds to admire VR
+          setTimeout(() => {
+            window.location.href = 'details.html?item=' + encodeURIComponent(topResult.class);
+          }, 2500);
+          
         } else {
-          // Tell user nothing was found
-          alert("Couldn't identify a valid recyclable piece of waste. Try getting closer or ensuring good lighting!");
+          SCAN_BTN.disabled = false;
+          SCAN_BTN.innerText = "🔍 Scan Object";
+          alert("Couldn't identify a valid recyclable piece of waste.");
         }
       });
     }
 
-    // --- 3D AVATAR & UI LOGIC ---
-
-    function updateUI(className, bbox) {
-      const data = ECO_DATA[className];
-      if (!data) return;
-
-      UI_LAYER.style.display = 'block';
-      NAME_EL.innerText = className;
-      CARBON_EL.innerText = ` footprint: ${data.carbon}`;
-
-      // --- PHASE 3: Bin, Comparison, and Alternatives ---
-      BIN_EL.innerText = `Discard in: ${data.bin}`;
-      BIN_EL.style.backgroundColor = data.binColor;
-
-      COMP_EL.innerText = `Equivalent to: ${data.comparison}`;
-
-      if (data.alternatives && data.alternatives.length > 0) {
-        ALT_CONT_EL.style.display = 'block';
-        ALT_LIST_EL.innerHTML = '';
-        data.alternatives.forEach(alt => {
-          const li = document.createElement('li');
-          li.innerText = alt;
-          ALT_LIST_EL.appendChild(li);
-        });
-      } else {
-        ALT_CONT_EL.style.display = 'none';
-      }
-
-      // Clear and fill steps
-      STEPS_EL.innerHTML = '';
-      data.steps.forEach(step => {
-        const li = document.createElement('li');
-        li.innerText = step;
-        STEPS_EL.appendChild(li);
-      });
-
-      // Determine if object is generally "Good/Recyclable" or "Bad/Trash" based on its data
-      // (For this demo, we'll assign tree to easily recyclable items, and trash to hazardous/complex items)
-      const recyclableItems = ['bottle', 'bowl', 'book', 'mouse', 'scissors']; 
-      const modelType = recyclableItems.includes(className) ? 'tree' : 'trash';
-
-      const WARNING_EL = document.getElementById('obj-warning');
-      WARNING_EL.style.display = 'block'; // Always show dynamic banner
-      
-      const binData = data.bin.toLowerCase();
-      if (binData.includes('hazardous')) {
-        WARNING_EL.innerText = '☢️ HAZARDOUS MATERIAL ☢️';
-        WARNING_EL.style.backgroundColor = '#c0392b';
-        document.querySelector('.info-card').style.borderColor = '#c0392b';
-      } else if (binData.includes('e-waste')) {
-        WARNING_EL.innerText = '🔌 ELECTRONIC WASTE 🔌';
-        WARNING_EL.style.backgroundColor = '#f39c12';
-        document.querySelector('.info-card').style.borderColor = '#f39c12';
-      } else {
-        WARNING_EL.innerText = '♻️ RECYCLABLE MATERIALS ♻️';
-        WARNING_EL.style.backgroundColor = '#27ae60';
-        document.querySelector('.info-card').style.borderColor = '#27ae60';
-      }
-
-      show3DAvatar(true, modelType, bbox);
-    }
-
-    function show3DAvatar(show, modelType = 'tree', bbox = null) {
-      if (show && bbox) {
-        // --- TRUE AR TRACKING (Restored) ---
+    // --- 3D AVATAR & VR ALERT LOGIC ---
+    function show3DAvatar(show, className = null, bbox = null) {
+      if (show && bbox && className) {
+        const data = ECO_DATA[className];
+        if (!data) return;
+        
         // Convert 2D camera coordinates to 3D AR space coordinates
         const [x, y, width, height] = bbox;
         const centerX = x + width / 2;
         const centerY = y + height / 2;
 
-        // Map normalized coordinates [-1 to 1]
-        // Base viewport is roughly 640x480 from the setupCamera standard constraints
         const nx = (centerX / 640) * 2 - 1;
         const ny = -(centerY / 480) * 2 + 1;
         
-        // Depth mapping: Bigger bounding box = closer to camera
         const area = width * height;
-        const zDepth = Math.max(-5, Math.min(-1.5, -300000 / area)); // Adjust depth based on box area
+        const zDepth = Math.max(-5, Math.min(-1.5, -300000 / area)); 
 
-        // Set the dynamic physical position instead of a hardcoded center
-        const posX = nx * (Math.abs(zDepth) * 0.5); // Spread factor
+        const posX = nx * (Math.abs(zDepth) * 0.5); 
         const posY = ny * (Math.abs(zDepth) * 0.5);
         
-        AR_AVATAR.setAttribute('position', `${posX} ${posY} ${zDepth}`);
+        VR_GROUP.setAttribute('position', `${posX} ${posY} ${zDepth}`);
+        VR_GROUP.setAttribute('scale', '1 1 1');
+
+        const recyclableItems = ['bottle', 'bowl', 'book', 'mouse', 'scissors']; 
+        const modelType = recyclableItems.includes(className) ? 'tree' : 'trash';
 
         if (modelType === 'tree') {
           AR_AVATAR.setAttribute('gltf-model', '#tree-model');
           AR_AVATAR.setAttribute('scale', '0.5 0.5 0.5');
         } else {
           AR_AVATAR.setAttribute('gltf-model', '#trash-model');
-          // Scale increased from 0.05 to 0.25 to make it visible
           AR_AVATAR.setAttribute('scale', '0.25 0.25 0.25');
         }
+
+        // --- NEW: VR FLOATING TEXT PANEL ---
+        const binData = data.bin.toLowerCase();
+        if (binData.includes('hazardous')) {
+          VR_TEXT.setAttribute('value', '⚠ HAZARDOUS ⚠');
+          VR_BG.setAttribute('color', '#c0392b');
+        } else if (binData.includes('e-waste')) {
+          VR_TEXT.setAttribute('value', '🔌 E-WASTE 🔌');
+          VR_BG.setAttribute('color', '#f39c12');
+        } else {
+          VR_TEXT.setAttribute('value', '♻ RECYCLABLE ♻');
+          VR_BG.setAttribute('color', '#27ae60');
+        }
+
       } else {
-        AR_AVATAR.setAttribute('scale', '0 0 0'); // Hide
+        VR_GROUP.setAttribute('scale', '0 0 0'); // Hide completely
       }
     }
 
-    // Start
     runAR().catch(e => console.error("Error starting AR:", e));
-
   </script>
 </body>
 
