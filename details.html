@@ -258,6 +258,26 @@
       }
     }
 
+    // AR Device Orientation Logic for floating hologram feel
+    let baseAlpha = null, baseBeta = null, baseGamma = null;
+    window.addEventListener('deviceorientation', function(e) {
+      if (e.alpha === null || e.beta === null || e.gamma === null) return;
+      if (baseAlpha === null) {
+        baseAlpha = e.alpha;
+        baseBeta = e.beta;
+        baseGamma = e.gamma;
+      }
+      
+      let dGamma = e.gamma - baseGamma;
+      let dBeta = e.beta - baseBeta;
+
+      let moveX = dGamma * 2.5;
+      let moveY = dBeta * 2.5;
+      
+      // Combine manual drag offset with AR gyroscope movement
+      dragWin.style.transform = `translate3d(${xOffset + moveX}px, ${yOffset + moveY}px, 0)`;
+    });
+
     // 1. Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const itemName = urlParams.get('item');

@@ -68,36 +68,6 @@
       100% { transform: rotate(360deg); }
     }
 
-    #scan-btn {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #27ae60;
-      color: white;
-      border: none;
-      padding: 15px 30px;
-      font-size: 1.2em;
-      font-weight: bold;
-      border-radius: 30px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-      cursor: pointer;
-      z-index: 20;
-      transition: all 0.2s ease;
-      display: none; 
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    #scan-btn:active {
-      transform: translateX(-50%) scale(0.95);
-      background: #219653;
-    }
-    
-    #scan-btn:disabled {
-      background: #95a5a6;
-      cursor: wait;
-    }
 
     #score-hud {
       position: absolute;
@@ -144,7 +114,6 @@
     <div class="hud-value" id="eco-points">0</div>
   </div>
 
-  <button id="scan-btn">🔍 Scan Object</button>
 
   <a-scene embedded vr-mode-ui="enabled: false">
     <a-assets>
@@ -213,95 +182,70 @@
       }
     }
 
+    let isRedirecting = false;
+    let detectionFrames = 0;
+    const REDIRECT_THRESHOLD = 20; // Approx 1s of holding steady at 50ms interval 
+
     async function runAR() {
       await setupCamera();
       
       LOADER.style.display = 'none';
-      SCAN_BTN.style.display = 'block'; 
-      SCAN_BTN.disabled = true;
-      SCAN_BTN.innerText = "⏳ Loading AI...";
 
       cocoSsd.load({ base: 'lite_mobilenet_v2' }).then(loadedModel => {
         model = loadedModel;
-        SCAN_BTN.disabled = false;
-        SCAN_BTN.innerText = "🔍 Scan Object";
-
-        SCAN_BTN.addEventListener('click', runSingleScan);
-        trackObject();
+        autoScanLoop();
       });
     }
-    
-    // --- BACKGROUND TRACKING LOOP ---
-    function trackObject() {
-      if (lastDetected) {
-        model.detect(VIDEO).then(predictions => {
-          // Find the specific object we are currently tracking
-          const targetPrediction = predictions.find(p => p.class === lastDetected && p.score > 0.40);
-          
-          if (!targetPrediction) {
-            handleNoDetection();
-          } else {
-            framesWithoutDetection = 0;
-            // UPDATE VR PANEL POSITION DYNAMICALLY (Makes it float as device moves!)
-            show3DAvatar(true, lastDetected, targetPrediction.bbox);
-          }
-        });
-      }
-      // Run faster (approx 60fps) to make the floating VR look buttery smooth
-      setTimeout(() => requestAnimationFrame(trackObject), 50);
-    }
 
-    function handleNoDetection() {
-      framesWithoutDetection++;
-      if (framesWithoutDetection > HIDE_THRESHOLD) {
-        lastDetected = null;
-        framesWithoutDetection = 0;
-        show3DAvatar(false);
-      }
-    }
-
-    // --- MANUAL SCAN LOGIC ---
-    function runSingleScan() {
-      SCAN_BTN.disabled = true;
-      SCAN_BTN.innerText = "Scanning...";
-      show3DAvatar(false);
+    // --- CONTINUOUS AUTO-SCAN LOOP ---
+    function autoScanLoop() {
+      if (isRedirecting) return;
 
       model.detect(VIDEO).then(predictions => {
         const validTargets = predictions.filter(p => ECO_DATA[p.class] && p.score > 0.60);
-
+        
         if (validTargets.length > 0) {
           validTargets.sort((a, b) => (b.bbox[2] * b.bbox[3]) - (a.bbox[2] * a.bbox[3]));
           const topResult = validTargets[0];
           
-          let userScore = updateEcoScore(0); // Ensure score initializes
-          
-          const scoreEl = document.getElementById('eco-points');
-          scoreEl.innerText = userScore;
-          if (ECO_DATA[topResult.class].points > 0) {
-            scoreEl.style.color = '#2ecc71'; 
+          if (lastDetected === topResult.class) {
+            detectionFrames++;
           } else {
-            scoreEl.style.color = '#e74c3c'; 
+            lastDetected = topResult.class;
+            detectionFrames = 1;
+            
+            // Only update score Gamification HUD on initial fresh detect
+            let userScore = updateEcoScore(0);
+            const scoreEl = document.getElementById('eco-points');
+            scoreEl.innerText = userScore;
+            if (ECO_DATA[topResult.class].points > 0) {
+              scoreEl.style.color = '#2ecc71'; 
+            } else {
+              scoreEl.style.color = '#e74c3c'; 
+            }
           }
           
-          lastDetected = topResult.class;
-          framesWithoutDetection = 0;
-          
-          // Show the VR hologram & pass bounding box
+          // Constantly track coordinate shifts
           show3DAvatar(true, topResult.class, topResult.bbox);
-          
-          SCAN_BTN.innerText = "Redirecting...";
-          
-          // Redirect to Bootstrap dashboard after 2.5 seconds to admire VR
-          setTimeout(() => {
-            window.location.href = 'details.html?item=' + encodeURIComponent(topResult.class);
-          }, 2500);
+
+          // Lock in after steady tracking to trigger redirect sequence
+          if (detectionFrames >= REDIRECT_THRESHOLD) {
+            isRedirecting = true;
+            
+            // Wait 1.5 seconds to admire AR hologram, then redirect
+            setTimeout(() => {
+              window.location.href = 'details.html?item=' + encodeURIComponent(topResult.class);
+            }, 1500);
+          }
           
         } else {
-          SCAN_BTN.disabled = false;
-          SCAN_BTN.innerText = "🔍 Scan Object";
-          alert("Couldn't identify a valid recyclable piece of waste.");
+          lastDetected = null;
+          detectionFrames = 0;
+          show3DAvatar(false);
         }
       });
+      
+      setTimeout(() => requestAnimationFrame(autoScanLoop), 50);
     }
 
     // --- 3D AVATAR & VR ALERT LOGIC ---
