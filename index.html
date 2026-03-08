@@ -20,7 +20,7 @@
 
     #ui-layer {
       position: absolute;
-      bottom: 20px;
+      bottom: 100px;
       left: 50%;
       transform: translateX(-50%);
       width: 90%;
@@ -452,7 +452,41 @@
       CLOSE_CARD_BTN.addEventListener('click', () => {
         UI_LAYER.style.display = 'none';
         show3DAvatar(false);
+        lastDetected = null; // Clear so tracking doesn't immediately bring it back
       });
+      
+      // Start background tracking to clear UI when object leaves frame
+      trackObject();
+    }
+    
+    // --- BACKGROUND TRACKING LOOP ---
+    // This runs continuously but ONLY to check if the currently displayed object is lost.
+    // It does not trigger new scans or update the UI with new objects.
+    function trackObject() {
+      if (lastDetected) {
+        model.detect(VIDEO).then(predictions => {
+          // Check if the current object we're showing is still in view
+          const isStillThere = predictions.some(p => p.class === lastDetected && p.score > 0.40);
+          
+          if (!isStillThere) {
+            handleNoDetection();
+          } else {
+            framesWithoutDetection = 0; // Reset
+          }
+        });
+      }
+      // Run every ~300ms to save battery (Feature 17 from PDF: Performance Improvement)
+      setTimeout(() => requestAnimationFrame(trackObject), 300);
+    }
+
+    function handleNoDetection() {
+      framesWithoutDetection++;
+      if (framesWithoutDetection > HIDE_THRESHOLD) {
+        lastDetected = null;
+        framesWithoutDetection = 0;
+        UI_LAYER.style.display = 'none';
+        show3DAvatar(false);
+      }
     }
 
     // --- MANUAL SCAN LOGIC ---
@@ -497,6 +531,10 @@
           } else {
             scoreEl.style.color = '#e74c3c'; // Red for bad
           }
+          
+          // Set as active object for the tracking loop to watch
+          lastDetected = topResult.class;
+          framesWithoutDetection = 0;
           
           // Show the UI card
           updateUI(topResult.class);
