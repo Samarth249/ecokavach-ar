@@ -507,15 +507,25 @@
       await setupCamera();
       console.log("Camera Ready");
 
-      // --- OPTIMIZATION: LITE MODEL ---
-      // 'lite_mobilenet_v2' is the absolute fastest model, loading much quicker
-      model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-      console.log("AI Ready");
+      // Phase 4: Hide loader immediately so camera shows instantly
       LOADER.style.display = 'none';
-      SCAN_BTN.style.display = 'block'; // Show the button when ready
+      SCAN_BTN.style.display = 'block'; 
+      SCAN_BTN.disabled = true;
+      SCAN_BTN.innerText = "⏳ Loading AI...";
 
-      // Bind the manual scan button
-      SCAN_BTN.addEventListener('click', runSingleScan);
+      // Load AI non-blocking
+      cocoSsd.load({ base: 'lite_mobilenet_v2' }).then(loadedModel => {
+        model = loadedModel;
+        console.log("AI Ready");
+        SCAN_BTN.disabled = false;
+        SCAN_BTN.innerText = "🔍 Scan Object";
+
+        // Bind the manual scan button
+        SCAN_BTN.addEventListener('click', runSingleScan);
+        
+        // Start background tracking to clear UI when object leaves frame
+        trackObject();
+      });
       
       // Bind the close card button
       CLOSE_CARD_BTN.addEventListener('click', () => {
@@ -523,9 +533,6 @@
         show3DAvatar(false);
         lastDetected = null; // Clear so tracking doesn't immediately bring it back
       });
-      
-      // Start background tracking to clear UI when object leaves frame
-      trackObject();
     }
     
     // --- BACKGROUND TRACKING LOOP ---
@@ -652,16 +659,25 @@
 
       // Determine if object is generally "Good/Recyclable" or "Bad/Trash" based on its data
       // (For this demo, we'll assign tree to easily recyclable items, and trash to hazardous/complex items)
-      const recyclableItems = ['bottle', 'bowl', 'book', 'mouse', 'scissors']; // Items that get a Tree
+      const recyclableItems = ['bottle', 'bowl', 'book', 'mouse', 'scissors']; 
       const modelType = recyclableItems.includes(className) ? 'tree' : 'trash';
 
       const WARNING_EL = document.getElementById('obj-warning');
-      if (modelType === 'trash') {
-        WARNING_EL.style.display = 'block';
-        document.querySelector('.info-card').style.borderColor = '#e74c3c'; // Red border for warning
+      WARNING_EL.style.display = 'block'; // Always show dynamic banner
+      
+      const binData = data.bin.toLowerCase();
+      if (binData.includes('hazardous')) {
+        WARNING_EL.innerText = '☢️ HAZARDOUS MATERIAL ☢️';
+        WARNING_EL.style.backgroundColor = '#c0392b';
+        document.querySelector('.info-card').style.borderColor = '#c0392b';
+      } else if (binData.includes('e-waste')) {
+        WARNING_EL.innerText = '🔌 ELECTRONIC WASTE 🔌';
+        WARNING_EL.style.backgroundColor = '#f39c12';
+        document.querySelector('.info-card').style.borderColor = '#f39c12';
       } else {
-        WARNING_EL.style.display = 'none';
-        document.querySelector('.info-card').style.borderColor = '#2ecc71'; // Green border for eco
+        WARNING_EL.innerText = '♻️ RECYCLABLE MATERIALS ♻️';
+        WARNING_EL.style.backgroundColor = '#27ae60';
+        document.querySelector('.info-card').style.borderColor = '#27ae60';
       }
 
       show3DAvatar(true, modelType);
