@@ -234,15 +234,20 @@
     function trackObject() {
       if (lastDetected) {
         model.detect(VIDEO).then(predictions => {
-          const isStillThere = predictions.some(p => p.class === lastDetected && p.score > 0.40);
-          if (!isStillThere) {
+          // Find the specific object we are currently tracking
+          const targetPrediction = predictions.find(p => p.class === lastDetected && p.score > 0.40);
+          
+          if (!targetPrediction) {
             handleNoDetection();
           } else {
             framesWithoutDetection = 0;
+            // UPDATE VR PANEL POSITION DYNAMICALLY (Makes it float as device moves!)
+            show3DAvatar(true, lastDetected, targetPrediction.bbox);
           }
         });
       }
-      setTimeout(() => requestAnimationFrame(trackObject), 100);
+      // Run faster (approx 60fps) to make the floating VR look buttery smooth
+      setTimeout(() => requestAnimationFrame(trackObject), 50);
     }
 
     function handleNoDetection() {
