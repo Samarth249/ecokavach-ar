@@ -268,7 +268,7 @@
     let frameConsistencyCounter = 0;
     const CONSISTENCY_THRESHOLD = 2; // Reduced from 5 to 2 for much faster detection feeling
     let framesWithoutDetection = 0;
-    const HIDE_THRESHOLD = 5; // Reduced from 30 to 5 so it vanishes almost instantly when you move the phone
+    const HIDE_THRESHOLD = 1; // Super sensitive! If it misses 1 check, it vanishes instantly.
 
     // --- IMPROVEMENT 5: SMART LABEL MAPPING (Eco-Logic) ---
     // Maps generic COCO-SSD labels to Eco-Kavach data
@@ -475,8 +475,8 @@
           }
         });
       }
-      // Run every ~300ms to save battery (Feature 17 from PDF: Performance Improvement)
-      setTimeout(() => requestAnimationFrame(trackObject), 300);
+      // Run every ~100ms to clear screen extremely quickly when object moves
+      setTimeout(() => requestAnimationFrame(trackObject), 100);
     }
 
     function handleNoDetection() {
