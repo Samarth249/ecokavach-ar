@@ -169,6 +169,33 @@
       background: #95a5a6;
       cursor: wait;
     }
+
+    /* Gamification HUD */
+    #score-hud {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 12px;
+      font-family: monospace;
+      z-index: 10;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(5px);
+    }
+    
+    .hud-title {
+      font-size: 0.7em;
+      color: #aaa;
+      letter-spacing: 1px;
+    }
+    
+    .hud-value {
+      font-size: 1.4em;
+      font-weight: bold;
+      color: #2ecc71;
+    }
   </style>
 </head>
 
@@ -182,6 +209,12 @@
   </div>
 
   <div id="reticle"></div>
+
+  <!-- Gamification HUD -->
+  <div id="score-hud">
+    <div class="hud-title">ECO POINTS</div>
+    <div class="hud-value" id="eco-points">0</div>
+  </div>
 
   <button id="scan-btn">🔍 Scan Object</button>
 
@@ -244,6 +277,7 @@
     const ECO_DATA = {
       'laptop': {
         carbon: '331kg CO2e',
+        points: -30,
         steps: [
           '1. BACKUP & WIPE: Use factory reset to protect personal data.',
           '2. BATTERY SAFETY: If removable, tape terminals to prevent fire.',
@@ -254,6 +288,7 @@
       },
       'cell phone': {
         carbon: '63kg CO2e',
+        points: -15,
         steps: [
           '1. CRITICAL MINERALS: Contains gold, cobalt, and rare earths.',
           '2. BATTERY HAZARD: Swollen batteries need special handling.',
@@ -264,6 +299,7 @@
       },
       'keyboard': {
         carbon: '19kg CO2e',
+        points: -5,
         steps: [
           '1. MATERIAL: Mostly ABS plastic and circuit membranes.',
           '2. CLEAN: Remove keycaps to recycle plastic separately if possible.',
@@ -274,6 +310,7 @@
       },
       'mouse': {
         carbon: '12kg CO2e',
+        points: -5,
         steps: [
           '1. BATTERIES: Remove AA/AAA batteries immediately.',
           '2. WIRELESS DONGLE: Don\'t forget the USB receiver inside.',
@@ -284,6 +321,7 @@
       },
       'tv': {
         carbon: '800kg+ CO2e',
+        points: -50,
         steps: [
           '1. HEAVY METALS: Older screens may contain mercury.',
           '2. SAFETY: Panel glass can shatter; do not break.',
@@ -294,6 +332,7 @@
       },
       'remote': {
         carbon: '2kg CO2e',
+        points: -10,
         steps: [
           '1. BATTERY CHECK: Leaking batteries are toxic—handle with gloves.',
           '2. RUBBER BUTTONS: Remove keypad if separating materials.',
@@ -304,6 +343,7 @@
       },
       'bottle': {
         carbon: '82g CO2e',
+        points: 10,
         steps: [
           '1. MATERIAL ID: Check for #1 (PET) or #2 (HDPE) symbol.',
           '2. RINSE: Food residue contaminates the whole batch.',
@@ -314,6 +354,7 @@
       },
       'cup': {
         carbon: '110g CO2e (Ceramic)',
+        points: -5,
         steps: [
           '1. PAPER CUPS: Lined with plastic—usually NOT recyclable.',
           '2. PLASTIC CUPS: Check number (#5 PP is common).',
@@ -324,6 +365,7 @@
       },
       'wine glass': {
         carbon: '250g CO2e',
+        points: -5,
         steps: [
           '1. WARNING: Different melting point than bottle glass.',
           '2. NO RECYCLE BIN: Do NOT mix with jar/bottle recycling.',
@@ -334,6 +376,7 @@
       },
       'bowl': {
         carbon: 'Varies',
+        points: 5,
         steps: [
           '1. CERAMIC/CLAY: Landfill only (cannot be melted down).',
           '2. GLASS (PYREX): Heat-treated; do NOT recycle with bottles.',
@@ -344,6 +387,7 @@
       },
       'book': {
         carbon: '1.2kg CO2e',
+        points: 15,
         steps: [
           '1. PAPER TYPE: White paper is high value; glossy is lower.',
           '2. GLUE/SPINE: Hardcovers must have covers ripped off.',
@@ -354,6 +398,7 @@
       },
       'scissors': {
         carbon: '15g CO2e',
+        points: 10,
         steps: [
           '1. COMPOSITE: Metal blades + Plastic handles = Nightmare.',
           '2. SEPARATE: Unscrew pivot screw to separate materials.',
@@ -364,6 +409,10 @@
       }
     };
 
+    // --- GAME STATE (localStorage) ---
+    let userScore = parseInt(localStorage.getItem('ecoScore')) || 0;
+    document.getElementById('eco-points').innerText = userScore;
+    
     // --- INITIALIZATION ---
     async function setupCamera() {
       // 1. Setup Camera
@@ -433,6 +482,23 @@
 
           // Since it's a manual scan, we don't need frames consistency anymore!
           // We instantly show the result of what they snapped.
+          
+          const itemData = ECO_DATA[topResult.class];
+          
+          // Award points
+          userScore += itemData.points;
+          localStorage.setItem('ecoScore', userScore);
+          
+          // Update HUD
+          const scoreEl = document.getElementById('eco-points');
+          scoreEl.innerText = userScore;
+          if (itemData.points > 0) {
+            scoreEl.style.color = '#2ecc71'; // Green for good
+          } else {
+            scoreEl.style.color = '#e74c3c'; // Red for bad
+          }
+          
+          // Show the UI card
           updateUI(topResult.class);
         } else {
           // Tell user nothing was found
